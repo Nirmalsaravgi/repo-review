@@ -1,0 +1,122 @@
+{
+  "root": "apps/api/src",
+  "items": [
+    {
+      "id": "locate-fs-tools",
+      "category": "locate",
+      "question": "Where are the agent's file tools list_dir, read_file, glob, and grep implemented?",
+      "expected_files": ["api/agent/tools/filesystem.py"]
+    },
+    {
+      "id": "locate-tool-registry",
+      "category": "locate",
+      "question": "Which file defines the tool JSON schemas and the run_tool dispatcher?",
+      "expected_files": ["api/agent/tools/registry.py"]
+    },
+    {
+      "id": "locate-path-safety",
+      "category": "locate",
+      "question": "Where is the path-safety guard that stops a tool from escaping the repository root?",
+      "expected_files": ["api/agent/tools/base.py"]
+    },
+    {
+      "id": "locate-chat-endpoint",
+      "category": "locate",
+      "question": "Which file implements the streaming chat endpoint over SSE?",
+      "expected_files": ["api/routes/chat.py"]
+    },
+    {
+      "id": "locate-citations",
+      "category": "locate",
+      "question": "Where are answer citations verified against the files on disk?",
+      "expected_files": ["api/agent/citations.py"]
+    },
+    {
+      "id": "locate-repo-map",
+      "category": "locate",
+      "question": "Where is the system prompt and the repo map that the agent gets on the first turn?",
+      "expected_files": ["api/agent/prompt.py"]
+    },
+    {
+      "id": "locate-cache",
+      "category": "locate",
+      "question": "Which file defines the response cache classes for the agent?",
+      "expected_files": ["api/agent/cache.py"]
+    },
+    {
+      "id": "locate-webhook",
+      "category": "locate",
+      "question": "Where is the GitHub webhook receiver that verifies the signature?",
+      "expected_files": ["api/routes/webhooks.py"]
+    },
+    {
+      "id": "locate-tenant-db",
+      "category": "locate",
+      "question": "Where is the tenant database dependency that sets the row-level-security context?",
+      "expected_files": ["api/deps.py"]
+    },
+    {
+      "id": "flow-loop-tools",
+      "category": "flow",
+      "question": "How does the agent loop run tool calls and feed their results back? Which files are involved?",
+      "expected_files": ["api/agent/loop.py", "api/agent/tools/registry.py"]
+    },
+    {
+      "id": "flow-chat-agent",
+      "category": "flow",
+      "question": "How does the chat endpoint use the agent to produce an answer? Trace the files involved.",
+      "expected_files": ["api/routes/chat.py", "api/agent/loop.py"]
+    },
+    {
+      "id": "flow-compaction",
+      "category": "flow",
+      "question": "Where does the loop decide to compact context, and where is compaction actually implemented?",
+      "expected_files": ["api/agent/loop.py", "api/agent/context.py"]
+    },
+    {
+      "id": "exact-step-budget",
+      "category": "exact_string",
+      "question": "What does the agent tell the user when it runs out of steps before finishing?",
+      "expected_files": ["api/agent/loop.py"],
+      "expected_strings": ["step budget"]
+    },
+    {
+      "id": "exact-citation-format",
+      "category": "exact_string",
+      "question": "What inline citation format does the system prompt instruct the model to use?",
+      "expected_files": ["api/agent/prompt.py"],
+      "expected_strings": ["path:start-end"]
+    },
+    {
+      "id": "exact-unknown-tool",
+      "category": "exact_string",
+      "question": "What error text does the tool dispatcher return when asked to run a tool that doesn't exist?",
+      "expected_files": ["api/agent/tools/registry.py"],
+      "expected_strings": ["Unknown tool"]
+    },
+    {
+      "id": "unans-stripe",
+      "category": "unanswerable",
+      "question": "Which module handles Stripe payment webhooks and refunds?",
+      "expected_files": []
+    },
+    {
+      "id": "unans-graphql",
+      "category": "unanswerable",
+      "question": "Where is the GraphQL schema for the subscription billing API defined?",
+      "expected_files": []
+    },
+    {
+      "id": "unans-kafka",
+      "category": "unanswerable",
+      "question": "How are the Kafka consumers for the event pipeline configured in this service?",
+      "expected_files": []
+    },
+    {
+      "id": "unans-feature-flags",
+      "category": "unanswerable",
+      "question": "Which file implements the LaunchDarkly feature-flag integration?",
+      "expected_files": []
+    }
+  ]
+}

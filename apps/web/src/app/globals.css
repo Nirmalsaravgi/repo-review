@@ -1,0 +1,51 @@
+:root {
+  --bg: #0f1419;
+  --bg-elevated: #1a222c;
+  --border: #2a3544;
+  --text: #e8eef5;
+  --muted: #8b9bb0;
+  --accent: #3d9cf0;
+  --accent-hover: #5aadf5;
+  --success: #3ecf8e;
+  --warning: #e6b84d;
+  --danger: #e85d5d;
+  --radius: 8px;
+  --font: var(--font-sans), "Segoe UI", system-ui, sans-serif;
+  --mono: var(--font-mono), "Cascadia Code", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #1a2a3d 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #162418 0%, transparent 50%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+code,
+.mono {
+  font-family: var(--mono);
+}

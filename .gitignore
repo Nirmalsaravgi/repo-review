@@ -1,0 +1,39 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg
+
+# Env & secrets
+.env
+.env.local
+*.pem
+private-key.pem
+
+# Node
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime data
+data/clones/
+data/volumes/
+*.log
+
+# Coverage
+.coverage
+htmlcov/
+coverage/

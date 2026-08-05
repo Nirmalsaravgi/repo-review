@@ -1,0 +1,376 @@
+{
+  "summary": {
+    "n": 19,
+    "k": 10,
+    "mean_recall_at_k": 0.9667,
+    "grounding_rate": 0.9333,
+    "string_match_rate": 1.0,
+    "abstention_rate": 0.75,
+    "hallucination_rate": 0.25
+  },
+  "scores": [
+    {
+      "id": "locate-fs-tools",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-tool-registry",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": false,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-path-safety",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-chat-endpoint",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-citations",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-repo-map",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-cache",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-webhook",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "locate-tenant-db",
+      "category": "locate",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "flow-loop-tools",
+      "category": "flow",
+      "recall_at_k": 0.5,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "flow-chat-agent",
+      "category": "flow",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "flow-compaction",
+      "category": "flow",
+      "recall_at_k": 1.0,
+      "found_strings": null,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "exact-step-budget",
+      "category": "exact_string",
+      "recall_at_k": 1.0,
+      "found_strings": true,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "exact-citation-format",
+      "category": "exact_string",
+      "recall_at_k": 1.0,
+      "found_strings": true,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "exact-unknown-tool",
+      "category": "exact_string",
+      "recall_at_k": 1.0,
+      "found_strings": true,
+      "grounded": true,
+      "correct_abstention": null
+    },
+    {
+      "id": "unans-stripe",
+      "category": "unanswerable",
+      "recall_at_k": null,
+      "found_strings": null,
+      "grounded": null,
+      "correct_abstention": false
+    },
+    {
+      "id": "unans-graphql",
+      "category": "unanswerable",
+      "recall_at_k": null,
+      "found_strings": null,
+      "grounded": null,
+      "correct_abstention": true
+    },
+    {
+      "id": "unans-kafka",
+      "category": "unanswerable",
+      "recall_at_k": null,
+      "found_strings": null,
+      "grounded": null,
+      "correct_abstention": true
+    },
+    {
+      "id": "unans-feature-flags",
+      "category": "unanswerable",
+      "recall_at_k": null,
+      "found_strings": null,
+      "grounded": null,
+      "correct_abstention": true
+    }
+  ],
+  "runs": [
+    {
+      "item_id": "locate-fs-tools",
+      "steps": 4,
+      "retrieved_files": [
+        "api/agent/tools/filesystem.py"
+      ],
+      "cited_files": [
+        "api/agent/tools/filesystem.py"
+      ],
+      "answer_text": "The agent's file tools\u2014`list_dir`, `read_file`, `glob`, and `grep`\u2014are implemented in `api/agent/tools/filesystem.py` `api/agent/tools/filesystem.py:1-318`."
+    },
+    {
+      "item_id": "locate-tool-registry",
+      "steps": 3,
+      "retrieved_files": [
+        "api/agent/tools/registry.py"
+      ],
+      "cited_files": [],
+      "answer_text": "The file `api/agent/tools/registry.py` defines both the tool JSON schemas (`TOOL_SCHEMAS`) and the `run_tool` dispatcher `api/agent/tools/registry.py:19-85, 101-136`."
+    },
+    {
+      "item_id": "locate-path-safety",
+      "steps": 3,
+      "retrieved_files": [
+        "api/agent/tools/base.py"
+      ],
+      "cited_files": [
+        "api/agent/tools/base.py"
+      ],
+      "answer_text": "The path-safety guard that prevents tools from escaping the repository root is the `resolve_within` function, located in `api/agent/tools/base.py` `api/agent/tools/base.py:39-53`.\n\nThis function enforces containment by:\n1.  Resolving the `root` path to its absolute form `api/agent/tools/base.py:45-45`.\n2.  Cleaning the provided `relpath` to remove leading slashes and checking for `..` components `api/agent/tools/base.py:46-48`.\n3.  Resolving the candidate path and verifying it is relative to the `root_resolved` path using `is_relative_to` `api/agent/tools/base.py:49-50`.\n4.  Raising a `ToolError` if the path escapes the root `api/agent/tools/base.py:51-51`.\n\nThis function is used by filesystem tools (such as `list_dir` and `read_file`) to validate paths before performing operations `api/agent/tools/filesystem.py:54, 106`."
+    },
+    {
+      "item_id": "locate-chat-endpoint",
+      "steps": 4,
+      "retrieved_files": [
+        "api/routes/chat.py"
+      ],
+      "cited_files": [
+        "api/routes/chat.py"
+      ],
+      "answer_text": "The streaming chat endpoint over SSE is implemented in `api/routes/chat.py`.\n\nSpecifically, the `chat` function (defined at `api/routes/chat.py:38-105`) handles the POST request to `/{repo_id}/chat` and returns an `EventSourceResponse` (from `sse_starlette.sse`), which streams the agent's output as events."
+    },
+    {
+      "item_id": "locate-citations",
+      "steps": 2,
+      "retrieved_files": [
+        "api/agent/citations.py",
+        "api/agent/loop.py"
+      ],
+      "cited_files": [
+        "api/agent/citations.py",
+        "api/agent/loop.py"
+      ],
+      "answer_text": "The verification of answer citations against files on disk is primarily handled by the `verify_citations` function located in `api/agent/citations.py` `api/agent/citations.py:24-24`.\n\nThis function is called during the agent's execution loop in `api/agent/loop.py` `api/agent/loop.py:124-124`, where it takes the `root` path and the generated text to verify the citations before finalizing the answer."
+    },
+    {
+      "item_id": "locate-repo-map",
+      "steps": 3,
+      "retrieved_files": [
+        "api/agent/prompt.py"
+      ],
+      "cited_files": [
+        "api/agent/prompt.py"
+      ],
+      "answer_text": "The system prompt and the logic for generating the repo map are located in `api/agent/prompt.py`.\n\n*   **System Prompt:** Defined as the constant `SYSTEM_PROMPT` `api/agent/prompt.py:17-33`.\n*   **Repo Map:** Generated by the function `build_repo_map(root: Path, *, max_entries: int = 300)` `api/agent/prompt.py:36-60`."
+    },
+    {
+      "item_id": "locate-cache",
+      "steps": 3,
+      "retrieved_files": [
+        "api/agent/cache.py"
+      ],
+      "cited_files": [
+        "api/agent/cache.py"
+      ],
+      "answer_text": "The response cache classes for the agent are defined in `api/agent/cache.py` `api/agent/cache.py:1-56`.\n\nThis file contains:\n*   `ResponseCache`: A `Protocol` defining the interface `api/agent/cache.py:18-22`.\n*   `InMemoryResponseCache`: An in-memory implementation `api/agent/cache.py:25-33`.\n*   `RedisResponseCache`: A Redis-backed implementation `api/agent/cache.py:36-56`."
+    },
+    {
+      "item_id": "locate-webhook",
+      "steps": 3,
+      "retrieved_files": [
+        "api/routes/webhooks.py"
+      ],
+      "cited_files": [
+        "api/routes/webhooks.py"
+      ],
+      "answer_text": "The GitHub webhook receiver is located in `api/routes/webhooks.py` `api/routes/webhooks.py:1-1`.\n\nThe signature verification occurs within the `github_webhook` function `api/routes/webhooks.py:25-36`:\n\n```python\n@router.post(\"/github\")\nasync def github_webhook(\n    # ...\n) -> dict[str, str]:\n    settings = get_settings()\n    body = await request.body()\n    if settings.github_app_webhook_secret:\n        if not verify_github_signature(body, x_hub_signature_256, settings.github_app_webhook_secret):\n            raise HTTPException(status_code=401, detail=\"Invalid webhook signature\")\n    # ...\n```\n\nIt uses the `verify_github_signature` function imported from `repo_core.security` `api/routes/webhooks.py:16-16`."
+    },
+    {
+      "item_id": "locate-tenant-db",
+      "steps": 3,
+      "retrieved_files": [
+        "api/deps.py"
+      ],
+      "cited_files": [
+        "api/deps.py"
+      ],
+      "answer_text": "The tenant database dependency is defined as `tenant_db` in `api/deps.py` `api/deps.py:32-42`.\n\nIt sets the row-level-security context by executing a SQL command to set the `app.current_org_id` configuration variable:\n\n```python\n    await db.execute(\n        text(\"SELECT set_config('app.current_org_id', :org_id, true)\"),\n        {\"org_id\": str(session.org_uuid)},\n    )\n```\n`api/deps.py:38-41`"
+    },
+    {
+      "item_id": "flow-loop-tools",
+      "steps": 3,
+      "retrieved_files": [
+        "api/agent/loop.py"
+      ],
+      "cited_files": [
+        "api/agent/loop.py"
+      ],
+      "answer_text": "The agent loop is implemented in `api/agent/loop.py`. It runs as a series of steps within the `Agent.run` method `api/agent/loop.py:63-105`.\n\n### How the loop runs tool calls and feeds results back:\n\n1.  **Model Turn (`_stream_step`)**: The agent calls the LLM provider with the current message history and tool schemas `api/agent/loop.py:116-128`.\n2.  **Tool Dispatch (`_run_tools`)**: If the model returns `tool_calls`, the loop calls `_run_tools` `api/agent/loop.py:97-98`.\n    *   It iterates through the `tool_calls` and yields `ToolStarted` events `api/agent/loop.py:133-134`.\n    *   It executes the tools in parallel using `asyncio.gather` and `arun_tool` (imported from `api.agent.tools`) `api/agent/loop.py:135-137`.\n    *   It yields `ToolFinished` events for each tool `api/agent/loop.py:139-144`.\n3.  **Feedback**: The results of the tool executions are collected into a list of `ToolResult` objects and appended to the message history as a `Message.tool` type `api/agent/loop.py:145-147`.\n4.  **Next Iteration**: The loop continues to the next step, where the updated `messages` (now including the tool results) are sent back to the model `api/agent/loop.py:85-95`.\n\n### Key files involved:\n*   **`api/agent/loop.py`**: Contains the main `Agent` class, the `run` loop, and the logic for dispatching tools and updating history.\n*   **`api/agent/tools/__init__.py`** (implied by `from api.agent.tools import arun_tool`): Contains the `arun_tool` function used to execute the actual tool logic.\n*   **`api/agent/events.py`**: Defines the event types (`ToolStarted`, `ToolFinished`, etc.) used to communicate the loop's progress."
+    },
+    {
+      "item_id": "flow-chat-agent",
+      "steps": 6,
+      "retrieved_files": [
+        "api/routes/chat.py",
+        "api/agent/__init__.py",
+        "api/agent/loop.py"
+      ],
+      "cited_files": [
+        "api/routes/chat.py",
+        "api/agent/loop.py"
+      ],
+      "answer_text": "The chat endpoint in `api/routes/chat.py` uses the `Agent` class from `api/agent` to process user queries and stream responses.\n\n### Trace of the process:\n\n1.  **Endpoint Entry**: The `chat` function in `api/routes/chat.py` `api/routes/chat.py:45-46` receives the request, validates the repository status, and resolves the conversation history from the database `api/routes/chat.py:54-75`.\n2.  **Agent Initialization**: Inside the `event_stream` generator, an `Agent` instance is created `api/routes/chat.py:95-101`. It is initialized with:\n    *   An LLM provider (from `repo_providers`) `api/routes/chat.py:89-89`.\n    *   The repository's local path (`root`) `api/routes/chat.py:82-82`.\n    *   A `RedisResponseCache` `api/routes/chat.py:100-100`.\n3.  **Agent Execution**: The endpoint calls `agent.run(question, history)` `api/routes/chat.py:102-102`.\n4.  **Agent Loop (`api/agent/loop.py`)**:\n    *   The `Agent.run` method first checks the cache for a previous answer `api/agent/loop.py:66-72`.\n    *   It constructs the initial message list, including a system prompt and a repository map `api/agent/loop.py:106-109`.\n    *   It enters a loop (up to `max_steps`) where it:\n        *   Streams completions from the LLM provider `api/agent/loop.py:118-123`.\n        *   If the LLM returns tool calls, it executes them in parallel using `arun_tool` `api/agent/loop.py:131-132` and feeds the results back into the message history `api/agent/loop.py:142-142`.\n        *   If no tool calls are returned, it breaks the loop to finalize the answer `api/agent/loop.py:128-129`.\n    *   Finally, it verifies citations in the answer `api/agent/loop.py:138-138` and yields an `AnswerCompleted` event `api/agent/loop.py:139-141`.\n5.  **Streaming and Persistence**: The `chat` endpoint iterates over the events yielded by `agent.run` `api/routes/chat.py:102-107`. It converts these events into Server-Sent Events (SSE) and, upon receiving `AnswerCompleted`, persists the assistant's response to the database `api/routes/chat.py:104, 175-196`."
+    },
+    {
+      "item_id": "flow-compaction",
+      "steps": 2,
+      "retrieved_files": [
+        "api/agent/loop.py",
+        "api/agent/context.py"
+      ],
+      "cited_files": [
+        "api/agent/loop.py",
+        "api/agent/context.py"
+      ],
+      "answer_text": "The loop decides to compact context in `api/agent/loop.py`, and the implementation is located in `api/agent/context.py`.\n\n*   **Decision to compact:** The loop calls `compact_messages` when the message list exceeds the token budget `api/agent/loop.py:99-99`.\n*   **Implementation:** The `compact_messages` function is defined in `api/agent/context.py` `api/agent/context.py:35-35`."
+    },
+    {
+      "item_id": "exact-step-budget",
+      "steps": 6,
+      "retrieved_files": [
+        "api/agent/loop.py"
+      ],
+      "cited_files": [
+        "api/agent/loop.py"
+      ],
+      "answer_text": "When the agent runs out of steps before finishing, it uses the message defined in `_STEP_BUDGET_MSG` `api/agent/loop.py:122-122`:\n\n> \"I couldn't finish within the step budget. Here's what I found so far \u2014 try narrowing the question.\" `api/agent/loop.py:51-54`"
+    },
+    {
+      "item_id": "exact-citation-format",
+      "steps": 6,
+      "retrieved_files": [
+        "README.md",
+        "api/agent/prompt.py"
+      ],
+      "cited_files": [
+        "api/agent/prompt.py"
+      ],
+      "answer_text": "The system prompt instructs the model to use the following inline citation format:\n\n> Cite the exact lines you relied on using the form ``path:start-end``, or ``path:line`` for a single line \u2014 e.g. ``. Use real, current line numbers from read_file.\n\n`api/agent/prompt.py:25-26`"
+    },
+    {
+      "item_id": "exact-unknown-tool",
+      "steps": 6,
+      "retrieved_files": [
+        "api/agent/loop.py",
+        "api/agent/tools/__init__.py",
+        "api/agent/tools/registry.py"
+      ],
+      "cited_files": [
+        "api/agent/tools/registry.py"
+      ],
+      "answer_text": "The tool dispatcher returns the following error text when asked to run a tool that does not exist:\n\n`\"Unknown tool: {name}. Valid tools: {', '.join(sorted(TOOL_NAMES))}.\"`\n\nThis is implemented in `api/agent/tools/registry.py` within the `run_tool` function `api/agent/tools/registry.py:126-129`."
+    },
+    {
+      "item_id": "unans-stripe",
+      "steps": 4,
+      "retrieved_files": [
+        "api/routes/webhooks.py"
+      ],
+      "cited_files": [
+        "api/routes/webhooks.py"
+      ],
+      "answer_text": "The provided repository does not contain any modules that handle Stripe payment webhooks or refunds. The `api/routes/webhooks.py` module is dedicated exclusively to handling GitHub App webhooks `api/routes/webhooks.py:1-1`."
+    },
+    {
+      "item_id": "unans-graphql",
+      "steps": 9,
+      "retrieved_files": [],
+      "cited_files": [],
+      "answer_text": "The provided repository does not contain a GraphQL schema or any files related to subscription billing."
+    },
+    {
+      "item_id": "unans-kafka",
+      "steps": 8,
+      "retrieved_files": [
+        "api/agent/events.py"
+      ],
+      "cited_files": [],
+      "answer_text": "The provided repository does not contain any Kafka consumers or configuration related to a Kafka event pipeline. The term \"event\" in this service refers to structured events emitted by the agent loop (defined in `api/agent/events.py`) and handled via Server-Sent Events (SSE) in the chat routes (`api/routes/chat.py`)."
+    },
+    {
+      "item_id": "unans-feature-flags",
+      "steps": 10,
+      "retrieved_files": [
+        "api/deps.py"
+      ],
+      "cited_files": [],
+      "answer_text": "The provided repository does not contain any implementation of a LaunchDarkly feature-flag integration. A search for \"LaunchDarkly\", \"ldclient\", and \"flag\" yielded no results."
+    }
+  ]
+}
