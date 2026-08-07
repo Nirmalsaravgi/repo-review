@@ -6,8 +6,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Phase 0 categories (implementation-plan.md §4, Week 4).
-CATEGORIES = ("locate", "flow", "exact_string", "unanswerable")
+# Phase 0 + Phase 1 categories (implementation-plan.md §4 / §5).
+CATEGORIES = ("locate", "flow", "exact_string", "unanswerable", "history")
 
 
 @dataclass

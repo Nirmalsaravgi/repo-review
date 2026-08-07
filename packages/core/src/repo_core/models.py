@@ -7,8 +7,10 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -193,7 +195,143 @@ class ChatMessage(Base):
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
-# Keep for Alembic discovery / Phase 1+ tables placeholder imports.
+# --------------------------------------------------------------------------- #
+# Phase 1 — git intelligence
+# --------------------------------------------------------------------------- #
+class FileRecord(Base):
+    """Minimal file registry (Phase 1). Phase 2 enriches language/loc/symbols."""
+
+    __tablename__ = "files"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "path", name="uq_files_repo_path"),
+        Index("ix_files_repo_id", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    blob_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    loc: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class Author(Base):
+    __tablename__ = "authors"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "email", name="uq_authors_repo_email"),
+        Index("ix_authors_repo_login", "repo_id", "github_login"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    github_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Commit(Base):
+    __tablename__ = "commits"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "sha", name="uq_commits_repo_sha"),
+        Index("ix_commits_repo_committed", "repo_id", "committed_at"),
+        Index("ix_commits_author", "author_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    author_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("authors.id", ondelete="SET NULL"), nullable=True
+    )
+    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class CommitFile(Base):
+    __tablename__ = "commit_files"
+    __table_args__ = (Index("ix_commit_files_commit", "commit_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    commit_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("commits.id", ondelete="CASCADE"), nullable=False
+    )
+    file_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+    )
+    additions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    deletions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    change_type: Mapped[str] = mapped_column(String(16), nullable=False)  # added|modified|deleted|renamed
+
+
+class PullRequest(Base):
+    __tablename__ = "pull_requests"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "number", name="uq_prs_repo_number"),
+        Index("ix_pull_requests_repo_id", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    merge_commit_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    author_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("authors.id", ondelete="SET NULL"), nullable=True
+    )
+    issue_refs: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+
+class Ownership(Base):
+    __tablename__ = "ownership"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "path_prefix", "author_id", name="uq_ownership_key"),
+        Index("ix_ownership_repo_prefix", "repo_id", "path_prefix"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    path_prefix: Mapped[str] = mapped_column(Text, nullable=False)
+    author_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("authors.id", ondelete="CASCADE"), nullable=False
+    )
+    score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    last_touched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# Keep for Alembic discovery / Phase 2+ tables placeholder imports.
 TENANT_TABLES = (
     "users",
     "installations",
@@ -201,4 +339,10 @@ TENANT_TABLES = (
     "index_runs",
     "conversations",
     "messages",
+    "files",
+    "authors",
+    "commits",
+    "commit_files",
+    "pull_requests",
+    "ownership",
 )

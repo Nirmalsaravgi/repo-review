@@ -1,7 +1,6 @@
-"""Celery worker stub — indexing tasks land in Phase 1+."""
+"""Celery worker — Phase 1 git-history ingestion tasks run here."""
 
 from celery import Celery
-
 from repo_core.config import get_settings
 
 settings = get_settings()
@@ -23,3 +22,8 @@ celery_app.conf.update(
 @celery_app.task(name="worker.ping")
 def ping() -> str:
     return "pong"
+
+
+# Import task modules so their @celery_app.task decorators register them.
+# (Placed last to avoid a circular import: ingest modules import `celery_app`.)
+from worker import ingest  # noqa: F401

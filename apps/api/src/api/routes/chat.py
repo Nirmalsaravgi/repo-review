@@ -86,6 +86,7 @@ async def chat(
     root = Path(repo.clone_path)
     repo_sha = repo.last_indexed_sha or ""
     repo_full_name = repo.full_name
+    repo_uuid = repo.id
 
     async def event_stream() -> AsyncIterator[dict[str, Any]]:
         yield {"event": "meta", "data": json.dumps({"conversation_id": str(conversation_id)})}
@@ -100,6 +101,9 @@ async def chat(
             root=root,
             repo_sha=repo_sha,
             repo_full_name=repo_full_name,
+            org_id=org_id,
+            repo_id=repo_uuid,
+            redis=get_redis(),
             cache=RedisResponseCache(get_redis()),
         )
         try:

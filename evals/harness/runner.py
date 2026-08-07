@@ -31,13 +31,16 @@ class RunResult:
 
 async def run_item(agent: Agent, item: EvalItem) -> RunResult:
     read_files: list[str] = []
+    tool_paths: list[str] = []
     result = RunResult(item_id=item.id)
     try:
         async for event in agent.run(item.question):
-            if isinstance(event, ToolStarted) and event.name == "read_file":
+            if isinstance(event, ToolStarted):
                 path = event.arguments.get("path")
                 if path:
-                    read_files.append(normalize_path(path))
+                    tool_paths.append(normalize_path(str(path)))
+                if event.name == "read_file" and path:
+                    read_files.append(normalize_path(str(path)))
             elif isinstance(event, AnswerCompleted):
                 result.answer_text = event.text
                 result.citations = event.citations
@@ -47,7 +50,7 @@ async def run_item(agent: Agent, item: EvalItem) -> RunResult:
         # Record the failure and keep going — one bad call shouldn't void the run.
         result.error = str(exc)
     result.read_files = _dedup(read_files)
-    result.retrieved_files = _dedup([*result.read_files, *result.cited_files])
+    result.retrieved_files = _dedup([*result.read_files, *result.cited_files, *tool_paths])
     return result
 
 

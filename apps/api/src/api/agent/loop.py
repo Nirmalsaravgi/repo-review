@@ -20,6 +20,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from repo_providers import (
     Completion,
@@ -46,6 +47,7 @@ from api.agent.events import (
 )
 from api.agent.prompt import SYSTEM_PROMPT, build_repo_map, normalize_question
 from api.agent.tools import TOOL_SCHEMAS, arun_tool
+from api.agent.tools.context import ToolContext
 
 _STEP_BUDGET_MSG = (
     "I couldn't finish within the step budget. Here's what I found so far — "
@@ -69,9 +71,20 @@ class Agent:
     root: Path
     repo_sha: str = ""
     repo_full_name: str = ""
+    org_id: UUID | None = None
+    repo_id: UUID | None = None
+    redis: Any | None = None
     tools: list[dict[str, Any]] = field(default_factory=lambda: list(TOOL_SCHEMAS))
     cache: ResponseCache | None = None
     config: AgentConfig = field(default_factory=AgentConfig)
+
+    def tool_context(self) -> ToolContext:
+        return ToolContext(
+            root=self.root,
+            org_id=self.org_id,
+            repo_id=self.repo_id,
+            redis=self.redis,
+        )
 
     async def run(
         self, question: str, history: Sequence[Message] | None = None
@@ -159,7 +172,7 @@ class Agent:
         for call in tool_calls:
             yield ToolStarted(id=call.id, name=call.name, arguments=call.arguments)
         envelopes = await asyncio.gather(
-            *(arun_tool(call.name, call.arguments, self.root) for call in tool_calls)
+            *(arun_tool(call.name, call.arguments, self.tool_context()) for call in tool_calls)
         )
         results: list[ToolResult] = []
         for call, envelope in zip(tool_calls, envelopes, strict=True):
@@ -214,4 +227,14 @@ def _summarize(name: str, envelope: dict[str, Any]) -> str:
         return f"{len(result.get('entries', []))} entr(ies)"
     if name == "read_file":
         return f"lines {result.get('start_line')}-{result.get('end_line')} of {result.get('path')}"
+    if name == "git_log":
+        return f"{len(result.get('entries', []))} commit(s)"
+    if name == "who_owns":
+        return f"{len(result.get('owners', []))} owner(s)"
+    if name in {"explain_diff", "compare_releases"}:
+        return f"{result.get('file_count', len(result.get('files', [])))} file(s)"
+    if name == "git_blame":
+        return f"{result.get('sha', '')[:8]} @ {result.get('path')}:{result.get('line')}"
+    if name == "why_here":
+        return "blame + commit artifacts"
     return "ok"

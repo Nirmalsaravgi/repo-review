@@ -1,12 +1,13 @@
-"""Agent tools (Slice 1): path-safe, bounded file operations over a repo clone.
+"""Agent tools: path-safe filesystem ops + Phase 1 git intelligence tools.
 
-Public surface used by later slices:
-- `TOOL_SCHEMAS` — vendor-neutral JSON Schemas (Slice 2 maps to Gemini).
-- `run_tool` / `arun_tool` — execute a model-requested tool call (Slice 3).
-The individual functions are exported for direct use and testing.
+Public surface:
+- `TOOL_SCHEMAS` — vendor-neutral JSON Schemas.
+- `run_tool` / `arun_tool` — execute a model-requested tool call.
+- `ToolContext` — root + optional org/repo/redis for git tools.
 """
 
 from api.agent.tools.base import ToolError, resolve_within
+from api.agent.tools.context import ToolContext
 from api.agent.tools.filesystem import (
     GlobResult,
     GrepMatch,
@@ -28,6 +29,7 @@ __all__ = [
     "GrepResult",
     "ListDirResult",
     "ReadFileResult",
+    "ToolContext",
     "ToolError",
     "arun_tool",
     "glob_files",

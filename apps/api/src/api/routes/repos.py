@@ -2,24 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
-from api.deps import require_session, tenant_db
 from repo_core.clone import CloneError, clone_or_fetch
 from repo_core.db import SessionLocal, current_org_id
 from repo_core.github_app import get_installation_token, list_installation_repos
 from repo_core.models import IndexRun, IndexStatus, Installation, Repository
 from repo_core.schemas import MessageOut, RepositoryOut, SelectRepoRequest
 from repo_core.session import SessionData
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from api.deps import require_session, tenant_db
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -125,7 +126,10 @@ async def select_repo(
         status="running",
     )
     db.add(run)
-    await db.flush()
+    # Commit before the background task so a new session can see the IndexRun /
+    # cloning status. FastAPI may run BackgroundTasks before dependency cleanup.
+    await db.commit()
+    await db.refresh(repo)
 
     background.add_task(
         _clone_repo_task,
@@ -179,7 +183,7 @@ async def reclone(
         status="running",
     )
     db.add(run)
-    await db.flush()
+    await db.commit()
     background.add_task(
         _clone_repo_task,
         org_id=str(session.org_uuid),
@@ -207,6 +211,13 @@ async def _clone_repo_task(*, org_id: str, repo_id: str, run_id: str) -> None:
         repo = result.scalar_one_or_none()
         run = await db.get(IndexRun, UUID(run_id))
         if repo is None or run is None:
+            logger.error(
+                "Clone task aborted: missing rows repo=%s run=%s (repo_found=%s run_found=%s)",
+                repo_id,
+                run_id,
+                repo is not None,
+                run is not None,
+            )
             return
 
         installation = repo.installation
@@ -215,7 +226,7 @@ async def _clone_repo_task(*, org_id: str, repo_id: str, run_id: str) -> None:
             repo.index_error = "Missing installation"
             run.status = "error"
             run.error = repo.index_error
-            run.finished_at = datetime.now(timezone.utc)
+            run.finished_at = datetime.now(UTC)
             await db.commit()
             return
 
@@ -234,19 +245,26 @@ async def _clone_repo_task(*, org_id: str, repo_id: str, run_id: str) -> None:
             repo.last_indexed_sha = result_clone.head_sha
             repo.is_shallow = result_clone.is_shallow
             repo.index_status = IndexStatus.READY.value
-            repo.indexed_at = datetime.now(timezone.utc)
+            repo.indexed_at = datetime.now(UTC)
             repo.index_error = None
             run.status = "success"
             run.stats = {
                 "shallow": result_clone.is_shallow,
                 "head_sha": result_clone.head_sha,
             }
-            run.finished_at = datetime.now(timezone.utc)
+            run.finished_at = datetime.now(UTC)
             await db.commit()
+            # Phase 1: deepen + history walk + PRs + ownership (async; chat works meanwhile).
+            try:
+                from worker.ingest.pipeline import enqueue_index_history
+
+                enqueue_index_history(org_id, repo_id)
+            except Exception:
+                logger.exception("Failed to enqueue index_history after clone")
         except (CloneError, Exception) as exc:  # noqa: BLE001
             repo.index_status = IndexStatus.ERROR.value
             repo.index_error = str(exc)
             run.status = "error"
             run.error = str(exc)
-            run.finished_at = datetime.now(timezone.utc)
+            run.finished_at = datetime.now(UTC)
             await db.commit()

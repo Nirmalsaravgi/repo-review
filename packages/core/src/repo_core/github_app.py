@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +14,8 @@ import jwt
 from repo_core.config import Settings, get_settings
 
 GITHUB_API = "https://api.github.com"
+GITHUB_GRAPHQL = "https://api.github.com/graphql"
+logger = logging.getLogger(__name__)
 
 
 class GitHubAppError(RuntimeError):
@@ -101,7 +105,7 @@ async def list_installation_repos(installation_id: int) -> list[dict[str, Any]]:
     page = 1
     while True:
         data = await github_get(
-            f"/installation/repositories",
+            "/installation/repositories",
             token=token,
             params={"per_page": 100, "page": page},
         )
@@ -111,6 +115,48 @@ async def list_installation_repos(installation_id: int) -> list[dict[str, Any]]:
             break
         page += 1
     return repos
+
+
+async def graphql(
+    query: str,
+    *,
+    token: str,
+    variables: dict[str, Any] | None = None,
+    max_retries: int = 5,
+) -> dict[str, Any]:
+    """Run a GitHub GraphQL query with secondary-rate-limit backoff."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    payload = {"query": query, "variables": variables or {}}
+    delay = 1.0
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for attempt in range(max_retries + 1):
+            resp = await client.post(GITHUB_GRAPHQL, headers=headers, json=payload)
+            if resp.status_code == 403 and (
+                "secondary rate limit" in resp.text.lower()
+                or resp.headers.get("retry-after")
+            ):
+                retry_after = float(resp.headers.get("retry-after") or delay)
+                logger.warning("GitHub secondary rate limit; sleeping %.1fs", retry_after)
+                await asyncio.sleep(retry_after)
+                delay = min(delay * 2, 60.0)
+                continue
+            if resp.status_code == 502 or resp.status_code == 503:
+                if attempt >= max_retries:
+                    raise GitHubAppError(f"GraphQL failed: {resp.status_code} {resp.text}")
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 60.0)
+                continue
+            if resp.status_code >= 400:
+                raise GitHubAppError(f"GraphQL failed: {resp.status_code} {resp.text}")
+            data = resp.json()
+            if "errors" in data and not data.get("data"):
+                raise GitHubAppError(f"GraphQL errors: {data['errors']}")
+            return data.get("data") or {}
+    raise GitHubAppError("GraphQL exhausted retries")
 
 
 def install_url(settings: Settings | None = None) -> str:

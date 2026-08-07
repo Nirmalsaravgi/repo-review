@@ -115,7 +115,8 @@ export function ChatPanel({ repo }: { repo: Repository }) {
       <div className={styles.log} ref={scrollRef}>
         {turns.length === 0 ? (
           <p className={styles.empty}>
-            Try: “Where is authentication handled?” or “What does the clone service do?”
+            Try: “Where is authentication handled?”, “Who owns this file?”, or “Why is this line
+            here?”
           </p>
         ) : (
           turns.map((t, i) => (

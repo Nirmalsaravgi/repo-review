@@ -13,7 +13,9 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
+from api.agent.tools import git as git_tools
 from api.agent.tools.base import ToolError
+from api.agent.tools.context import ToolContext
 from api.agent.tools.filesystem import glob_files, grep, list_dir, read_file
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
@@ -89,22 +91,121 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             "required": ["pattern"],
         },
     },
+    {
+        "name": "git_log",
+        "description": (
+            "Show recent commits that touched a path (or the whole repo). "
+            "Use for history questions about when/how a file evolved."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Repo-relative path (file or directory). Default '.'.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max commits to return (default 20, max 40).",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "git_blame",
+        "description": (
+            "Show which commit last touched a specific 1-based line in a file."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Repo-relative file path."},
+                "line": {"type": "integer", "description": "1-based line number."},
+            },
+            "required": ["path", "line"],
+        },
+    },
+    {
+        "name": "who_owns",
+        "description": (
+            "Return ownership scores for a path from indexed git history "
+            "(recency-weighted). Use for 'who knows this code?' questions."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Repo-relative file or directory."}
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "why_here",
+        "description": (
+            "Explain why a line exists: blame → introducing commit → linked PR/issues "
+            "when history is indexed. Summarize from the returned artifacts."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line": {"type": "integer"},
+            },
+            "required": ["path", "line"],
+        },
+    },
+    {
+        "name": "explain_diff",
+        "description": (
+            "Diff two git refs (commits, branches, or tags) and return per-file patches "
+            "capped for context. Summarize architecturally, not line-by-line."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ref_a": {"type": "string", "description": "Base ref (older)."},
+                "ref_b": {"type": "string", "description": "Head ref (newer)."},
+            },
+            "required": ["ref_a", "ref_b"],
+        },
+    },
+    {
+        "name": "compare_releases",
+        "description": "Diff two release tags (same as explain_diff for tags).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tag_a": {"type": "string"},
+                "tag_b": {"type": "string"},
+            },
+            "required": ["tag_a", "tag_b"],
+        },
+    },
 ]
 
 TOOL_NAMES = frozenset(s["name"] for s in TOOL_SCHEMAS)
+
+_ASYNC_TOOLS = frozenset({"who_owns", "why_here"})
 
 
 def _as_dict(result: Any) -> Any:
     return asdict(result) if is_dataclass(result) else result
 
 
-def run_tool(name: str, arguments: dict[str, Any] | None, root: Path) -> dict[str, Any]:
-    """Execute a tool by name and return a structured envelope.
+def _ctx(root_or_ctx: Path | ToolContext) -> ToolContext:
+    if isinstance(root_or_ctx, ToolContext):
+        return root_or_ctx
+    return ToolContext.from_root(root_or_ctx)
 
-    Always returns `{"ok": bool, ...}` rather than raising, so a bad model-issued
-    call becomes a tool error the agent can recover from — never a crashed loop.
-    """
+
+def run_tool(
+    name: str, arguments: dict[str, Any] | None, root_or_ctx: Path | ToolContext
+) -> dict[str, Any]:
+    """Execute a sync tool by name. Async tools must use `arun_tool`."""
     args = arguments or {}
+    ctx = _ctx(root_or_ctx)
+    root = ctx.root
     try:
         if name == "list_dir":
             result = list_dir(root, args.get("path", "."))
@@ -125,6 +226,25 @@ def run_tool(name: str, arguments: dict[str, Any] | None, root: Path) -> dict[st
                 path_filter=args.get("path_filter"),
                 ignore_case=bool(args.get("ignore_case", False)),
             )
+        elif name == "git_log":
+            result = git_tools.git_log(ctx, args.get("path", "."), args.get("limit", 20))
+        elif name == "git_blame":
+            if "path" not in args or "line" not in args:
+                raise ToolError("Missing required arguments: path, line")
+            result = git_tools.git_blame(ctx, args["path"], int(args["line"]))
+        elif name == "explain_diff":
+            if "ref_a" not in args or "ref_b" not in args:
+                raise ToolError("Missing required arguments: ref_a, ref_b")
+            result = git_tools.explain_diff(ctx, args["ref_a"], args["ref_b"])
+        elif name == "compare_releases":
+            if "tag_a" not in args or "tag_b" not in args:
+                raise ToolError("Missing required arguments: tag_a, tag_b")
+            result = git_tools.compare_releases(ctx, args["tag_a"], args["tag_b"])
+        elif name in _ASYNC_TOOLS:
+            return {
+                "ok": False,
+                "error": f"Tool {name} is async — use arun_tool",
+            }
         else:
             return {
                 "ok": False,
@@ -135,10 +255,23 @@ def run_tool(name: str, arguments: dict[str, Any] | None, root: Path) -> dict[st
     return {"ok": True, "result": _as_dict(result)}
 
 
-async def arun_tool(name: str, arguments: dict[str, Any] | None, root: Path) -> dict[str, Any]:
-    """Async wrapper — tools are blocking (filesystem/subprocess), so run off-loop.
-
-    Lets the Slice 3 loop dispatch several tool calls concurrently with
-    `asyncio.gather` without blocking the event loop.
-    """
-    return await asyncio.to_thread(run_tool, name, arguments, root)
+async def arun_tool(
+    name: str, arguments: dict[str, Any] | None, root_or_ctx: Path | ToolContext
+) -> dict[str, Any]:
+    """Async dispatcher — filesystem/git sync tools run off-loop; DB tools await."""
+    args = arguments or {}
+    ctx = _ctx(root_or_ctx)
+    try:
+        if name == "who_owns":
+            if "path" not in args:
+                raise ToolError("Missing required argument: path")
+            result = await git_tools.who_owns(ctx, args["path"])
+            return {"ok": True, "result": result}
+        if name == "why_here":
+            if "path" not in args or "line" not in args:
+                raise ToolError("Missing required arguments: path, line")
+            result = await git_tools.why_here(ctx, args["path"], int(args["line"]))
+            return {"ok": True, "result": result}
+    except ToolError as exc:
+        return {"ok": False, "error": str(exc)}
+    return await asyncio.to_thread(run_tool, name, arguments, ctx)

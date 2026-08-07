@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import auth, chat, health, repos, webhooks
+from api.routes import auth, chat, health, history, repos, webhooks
 from repo_core.config import get_settings
 
 
@@ -33,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(repos.router, prefix="/repos", tags=["repos"])
+    app.include_router(history.router, prefix="/repos", tags=["history"])
     app.include_router(chat.router, prefix="/repos", tags=["chat"])
     app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
     return app

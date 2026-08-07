@@ -59,6 +59,14 @@ def test_dataset_loads_and_categories_valid() -> None:
     assert any(i.category == "unanswerable" for i in dataset.items)
 
 
+def test_history_dataset_loads() -> None:
+    history = PROJECT_ROOT / "evals" / "datasets" / "repo_review_history.json"
+    dataset = load_dataset(history)
+    assert dataset.root == "."
+    assert len(dataset.items) >= 5
+    assert all(i.category == "history" for i in dataset.items)
+
+
 # --------------------------------------------------------------------------- #
 # runner (mock LLM, real tools + files)
 # --------------------------------------------------------------------------- #
@@ -113,6 +121,37 @@ async def test_run_dataset_aggregates() -> None:
     assert report.hallucination_rate == 0.0
 
 
+async def test_run_item_history_hit() -> None:
+    from api.agent import Agent
+
+    item = EvalItem(
+        id="history-locate-git-tools",
+        category="history",
+        question="where are git tools?",
+        expected_files=["apps/api/src/api/agent/tools/git.py"],
+        expected_strings=["git_log"],
+    )
+    script = [
+        Completion(
+            tool_calls=[
+                ToolCall(
+                    name="read_file",
+                    arguments={"path": "apps/api/src/api/agent/tools/git.py"},
+                )
+            ]
+        ),
+        Completion(
+            text="git_log and who_owns live in [[apps/api/src/api/agent/tools/git.py:1-20]]."
+        ),
+    ]
+    agent = Agent(provider=MockProvider(script), root=PROJECT_ROOT)
+    result = await run_item(agent, item)
+    score = score_item(item, result, k=10)
+    assert score.history_hit is True
+    assert score.recall_at_k == 1.0
+    assert score.found_strings is True
+
+
 def test_aggregate_reports_hallucination() -> None:
     from evals.harness.metrics import ItemScore
 
@@ -120,6 +159,17 @@ def test_aggregate_reports_hallucination() -> None:
     report = aggregate(scores, k=10)
     assert report.abstention_rate == 0.0
     assert report.hallucination_rate == 1.0
+
+
+def test_aggregate_history_hit_rate() -> None:
+    from evals.harness.metrics import ItemScore
+
+    scores = [
+        ItemScore(id="h1", category="history", history_hit=True, recall_at_k=1.0),
+        ItemScore(id="h2", category="history", history_hit=False, recall_at_k=0.0),
+    ]
+    report = aggregate(scores, k=10)
+    assert report.history_hit_rate == 0.5
 
 
 def _agent(script):

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Repository } from "@/lib/api";
 import { ChatPanel } from "./ChatPanel";
+import { HistoryPanel } from "./HistoryPanel";
 import styles from "./RepoPicker.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
@@ -64,7 +65,6 @@ export function RepoPicker({
             : { ...r, selected: false },
         ),
       );
-      // Poll briefly for clone status
       pollStatus(updated.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Select failed");
@@ -90,8 +90,8 @@ export function RepoPicker({
         <div>
           <h1 className={styles.title}>Select a repository</h1>
           <p className={styles.copy}>
-            Selecting a repo starts a shallow clone for Phase 0 chat. Full history comes in
-            Phase 1.
+            Selecting a repo starts a shallow clone for chat. History indexing (ownership,
+            bus-factor) runs in the background via Celery after the clone is ready.
           </p>
         </div>
         <div className={styles.actions}>
@@ -155,11 +155,14 @@ export function RepoPicker({
       )}
 
       {activeRepo ? (
-        <ChatPanel repo={activeRepo} />
+        <div className={styles.workspace}>
+          <ChatPanel repo={activeRepo} />
+          <HistoryPanel repo={activeRepo} />
+        </div>
       ) : (
         <p className={styles.footnote}>
           Select a repository and wait for it to finish cloning (status “ready”) to start asking
-          questions.
+          questions and view git intelligence.
         </p>
       )}
     </section>

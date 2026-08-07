@@ -94,3 +94,37 @@ class ConversationOut(ORMModel):
 
 class ConversationDetailOut(ConversationOut):
     messages: list[ChatMessageOut] = Field(default_factory=list)
+
+
+class OwnershipEntryOut(BaseModel):
+    author_id: str
+    author: str | None = None
+    email: str | None = None
+    github_login: str | None = None
+    path_prefix: str
+    score: float
+    share: float | None = None
+    last_touched_at: str | None = None
+
+
+class BusFactorOut(BaseModel):
+    path_prefix: str
+    author_id: str
+    share: float
+    score: float
+    inactive: bool
+    last_seen_at: str | None = None
+
+
+class ContributionOut(BaseModel):
+    author_id: str
+    email: str
+    name: str | None = None
+    github_login: str | None = None
+    last_seen_at: str | None = None
+    commit_count: int
+
+
+class IndexHistoryOut(BaseModel):
+    message: str
+    task_id: str | None = None

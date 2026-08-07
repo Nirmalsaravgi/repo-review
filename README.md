@@ -10,15 +10,16 @@ Companion docs:
 
 ## Current status
 
-**Phase 0 / Week 1 foundations** are scaffolded:
+**Phase 0** (agentic chat) is complete: GitHub App auth, shallow clone, filesystem agent
+tools, Gemini tool loop, SSE chat UI, conversation persistence, eval baseline (~0.97 recall@10).
 
-- Docker Compose: Postgres 16 (`pgvector`, `pg_trgm`) + Redis
-- FastAPI API: GitHub App login, webhooks, repo sync/select, shallow clone via pygit2
-- Next.js shell: auth + repo picker
-- Alembic migration with tenant RLS policies
-- Celery worker stub (for later phases)
+**Phase 1 G2–G7** (git intelligence) is implemented:
 
-Not yet: agent chat (Week 3), eval harness (Week 4), git intelligence (Phase 1).
+- Celery `index_history` pipeline: deepen → commit walk → PR GraphQL backfill → ownership
+- Agent tools: `git_log`, `git_blame`, `who_owns`, `why_here`, `explain_diff`, `compare_releases`
+- Read APIs: `/repos/{id}/ownership`, `/bus-factor`, `/contributions`, `POST .../index-history`
+- Web: History panel beside chat (contributors, ownership bars, bus-factor)
+- Eval: `evals/datasets/repo_review_history.json` + `history_hit_rate` in the harness
 
 ## Prerequisites
 
@@ -46,9 +47,16 @@ $env:PYTHONPATH = "packages/core/src;apps/api/src;apps/worker/src"
 alembic upgrade head
 
 # 5. API (port 8001 — 8000 is often taken locally)
-uvicorn api:app --reload --port 8001 --app-dir apps/api/src
+# Exclude data/ so writing clones does not trigger --reload and kill the clone task.
+$env:PYTHONPATH = "packages/core/src;apps/api/src;apps/worker/src"
+uvicorn api:app --reload --reload-exclude "data/*" --port 8001 --app-dir apps/api/src
 
-# 6. web (separate terminal)
+# 6. Celery worker (history deepen + ingest — required for ownership / why_here)
+# On Windows use --pool=solo (prefork hits PermissionError with billiard).
+$env:PYTHONPATH = "packages/core/src;apps/api/src;apps/worker/src"
+celery -A worker worker --loglevel=info --pool=solo
+
+# 7. web (separate terminal)
 cd apps/web
 npm install
 $env:NEXT_PUBLIC_API_BASE_URL = "http://localhost:8001"
@@ -59,6 +67,9 @@ npm run dev
 Open http://localhost:3000
 
 > **Ports:** Postgres is on **5433**, API on **8001**, to avoid clashes with other local Docker stacks that already use 5432/8000.
+>
+> After you select a repo, the API shallow-clones immediately (chat works), then enqueues
+> `index_history` on the Celery worker (deepen + commits + PRs + ownership).
 
 ## GitHub App configuration
 
@@ -88,19 +99,21 @@ GITHUB_APP_WEBHOOK_SECRET=...
 GITHUB_APP_SLUG=your-app-slug
 ```
 
-## Week 1 exit criteria
+## Exit criteria (current)
 
-You can log in, install the App, pick a repo, and see it shallow-cloned under
-`data/clones/<org_id>/<github_repo_id>/`.
+- Phase 0: log in, pick a repo, get a cited chat answer.
+- Phase 1: with Celery running, history indexes after select; chat can answer ownership /
+  blame / diff questions; `GET /repos/{id}/ownership` returns scores.
 
 ## Layout
 
 ```
-apps/api          FastAPI
-apps/worker       Celery (stub)
+apps/api          FastAPI (auth, repos, chat, history)
+apps/worker       Celery (deepen, history walk, PRs, ownership)
 apps/web          Next.js UI
 packages/core     Shared models, GitHub App helpers, clone service
-alembic           Migrations
+packages/providers LLM provider interface (Gemini)
+alembic           Migrations (0001–0003)
 infra/postgres    DB init (extensions + app role)
-evals             (Week 4)
+evals             Phase 0 eval harness + baseline
 ```

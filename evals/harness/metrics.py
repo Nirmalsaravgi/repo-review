@@ -1,11 +1,11 @@
 """Scoring — pure functions, unit-tested in CI.
 
-Metrics (Phase 0):
-- recall@k on retrieved files (locate / flow / exact_string)
-- exact-string match in the answer (exact_string)
+Metrics:
+- recall@k on retrieved files (locate / flow / exact_string / history)
+- exact-string match in the answer (exact_string / history when labeled)
 - grounding rate: answerable questions that produced ≥1 citation
-- abstention rate: unanswerable questions the agent correctly declined
-- hallucination rate: unanswerable questions it answered anyway
+- abstention / hallucination on unanswerable
+- history_hit_rate: history items with string match, recall, or citation
 """
 
 from __future__ import annotations
@@ -32,6 +32,8 @@ _ABSTAIN_RE = re.compile(
     re.IGNORECASE,
 )
 
+_RECALL_CATEGORIES = frozenset({"locate", "flow", "exact_string", "history"})
+
 
 def normalize_path(p: str) -> str:
     return p.replace("\\", "/").lstrip("./").strip()
@@ -48,9 +50,7 @@ def recall_at_k(expected: list[str], retrieved: list[str], k: int) -> float:
 def detect_abstention(answer: str, has_citations: bool) -> bool:
     """Did the agent decline?
 
-    Driven by an explicit denial phrase ("does not contain", "not present in the
-    repository", …). Citations do NOT rule out abstention: a good answer may both
-    decline *and* cite the nearest unrelated file ("X isn't here; Y does Z [[…]]").
+    Driven by an explicit denial phrase. Citations do NOT rule out abstention.
     `has_citations` is kept for callers but is intentionally not a veto.
     """
     _ = has_citations
@@ -65,6 +65,7 @@ class ItemScore:
     found_strings: bool | None = None
     grounded: bool | None = None
     correct_abstention: bool | None = None
+    history_hit: bool | None = None
 
 
 def score_item(item: EvalItem, result: RunResult, k: int) -> ItemScore:
@@ -77,12 +78,18 @@ def score_item(item: EvalItem, result: RunResult, k: int) -> ItemScore:
     if item.expected_strings:
         answer = (result.answer_text or "").lower()
         found = all(s.lower() in answer for s in item.expected_strings)
+
+    history_hit = None
+    if item.category == "history":
+        history_hit = (found is True) or (recall > 0.0) or result.has_citations
+
     return ItemScore(
         id=item.id,
         category=item.category,
-        recall_at_k=recall,
+        recall_at_k=recall if item.category in _RECALL_CATEGORIES else recall,
         found_strings=found,
         grounded=result.has_citations,
+        history_hit=history_hit,
     )
 
 
@@ -95,6 +102,7 @@ class EvalReport:
     string_match_rate: float
     abstention_rate: float
     hallucination_rate: float
+    history_hit_rate: float = 0.0
     scores: list[ItemScore] = field(default_factory=list)
 
 
@@ -103,10 +111,16 @@ def _rate(values: list[bool]) -> float:
 
 
 def aggregate(scores: list[ItemScore], k: int) -> EvalReport:
-    recalls = [s.recall_at_k for s in scores if s.recall_at_k is not None]
+    # Phase 0 baseline: mean recall over locate/flow/exact only.
+    phase0 = [s for s in scores if s.category in {"locate", "flow", "exact_string"}]
+    recalls = [s.recall_at_k for s in phase0 if s.recall_at_k is not None]
+    if not recalls:
+        recalls = [s.recall_at_k for s in scores if s.recall_at_k is not None]
+
     grounded = [s.grounded for s in scores if s.grounded is not None]
     strings = [s.found_strings for s in scores if s.found_strings is not None]
     abstentions = [s.correct_abstention for s in scores if s.correct_abstention is not None]
+    history = [s.history_hit for s in scores if s.history_hit is not None]
     return EvalReport(
         n=len(scores),
         k=k,
@@ -115,5 +129,6 @@ def aggregate(scores: list[ItemScore], k: int) -> EvalReport:
         string_match_rate=_rate(strings),
         abstention_rate=_rate(abstentions),
         hallucination_rate=1.0 - _rate(abstentions) if abstentions else 0.0,
+        history_hit_rate=_rate(history),
         scores=scores,
     )

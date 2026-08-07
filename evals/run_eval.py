@@ -1,6 +1,10 @@
-"""Live Phase 0 eval — runs the agent (real LLM) over the dataset, records the report.
+"""Live eval — runs the agent (real LLM) over a dataset, records the report.
 
     python evals/run_eval.py [dataset.json]
+
+Examples:
+    python evals/run_eval.py
+    python evals/run_eval.py evals/datasets/repo_review_history.json
 
 Costs tokens (one agent run per question), so this is a script, not part of pytest.
 Writes a timestamped JSON under evals/results/ so the baseline is tracked over time.
@@ -27,6 +31,8 @@ DEFAULT_DATASET = PROJECT_ROOT / "evals" / "datasets" / "repo_review_api.json"
 
 async def main() -> None:
     dataset_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DATASET
+    if not dataset_path.is_absolute():
+        dataset_path = (PROJECT_ROOT / dataset_path).resolve()
     dataset = load_dataset(dataset_path)
     root = (PROJECT_ROOT / dataset.root).resolve()
     # Throttle to ~12 req/min so a free-tier key (15/min) doesn't hit 429s.

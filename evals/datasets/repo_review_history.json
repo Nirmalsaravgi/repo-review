@@ -1,0 +1,61 @@
+{
+  "root": ".",
+  "items": [
+    {
+      "id": "history-locate-git-tools",
+      "category": "history",
+      "question": "Where are the Phase 1 git agent tools (git_log, git_blame, who_owns, why_here) implemented?",
+      "expected_files": ["apps/api/src/api/agent/tools/git.py"],
+      "expected_strings": ["git_log"]
+    },
+    {
+      "id": "history-locate-ownership",
+      "category": "history",
+      "question": "Where is ownership scoring and bus-factor hotspot detection implemented for git intelligence?",
+      "expected_files": ["apps/worker/src/worker/ingest/ownership.py"],
+      "expected_strings": ["bus_factor"]
+    },
+    {
+      "id": "history-locate-pipeline",
+      "category": "history",
+      "question": "Which worker module orchestrates deepen, commit walk, PR backfill, and ownership as index_history?",
+      "expected_files": ["apps/worker/src/worker/ingest/pipeline.py"],
+      "expected_strings": ["index_history"]
+    },
+    {
+      "id": "history-blame-readme",
+      "category": "history",
+      "question": "Using git blame, who last touched line 1 of README.md and what does that line say?",
+      "expected_files": ["README.md"],
+      "expected_strings": ["Repo Understanding"]
+    },
+    {
+      "id": "history-log-git-py",
+      "category": "history",
+      "question": "Show recent commits that touched apps/api/src/api/agent/tools/git.py. Summarize what they changed.",
+      "expected_files": ["apps/api/src/api/agent/tools/git.py"],
+      "expected_strings": ["git"]
+    },
+    {
+      "id": "history-diff-head",
+      "category": "history",
+      "question": "What changed between HEAD~1 and HEAD in this repository? Summarize the architectural impact, not every line.",
+      "expected_files": [],
+      "expected_strings": ["HEAD"]
+    },
+    {
+      "id": "history-why-registry",
+      "category": "history",
+      "question": "Why is line 1 of apps/api/src/api/agent/tools/registry.py here? Use blame / why_here and summarize the introducing commit.",
+      "expected_files": ["apps/api/src/api/agent/tools/registry.py"],
+      "expected_strings": ["registry"]
+    },
+    {
+      "id": "history-tool-schemas",
+      "category": "history",
+      "question": "Which file registers who_owns and explain_diff in TOOL_SCHEMAS for the agent?",
+      "expected_files": ["apps/api/src/api/agent/tools/registry.py"],
+      "expected_strings": ["who_owns"]
+    }
+  ]
+}
