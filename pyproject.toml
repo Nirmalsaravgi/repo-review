@@ -27,6 +27,9 @@ dependencies = [
   "itsdangerous>=2.2.0",
   "sse-starlette>=2.1.0",
   "google-genai>=0.8.0",
+  "tree-sitter>=0.23.0",
+  "tree-sitter-language-pack>=0.7.0",
+  "pgvector>=0.3.6",
 ]
 
 [project.optional-dependencies]
@@ -37,12 +40,12 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["packages/core/src", "packages/providers/src", "apps/api/src", "apps/worker/src"]
+where = ["packages/core/src", "packages/providers/src", "packages/parsing/src", "apps/api/src", "apps/worker/src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests", "evals"]
-pythonpath = [".", "packages/core/src", "packages/providers/src", "apps/api/src", "apps/worker/src"]
+pythonpath = [".", "packages/core/src", "packages/providers/src", "packages/parsing/src", "apps/api/src", "apps/worker/src"]
 
 [tool.ruff]
 line-length = 100

@@ -34,6 +34,8 @@ export type Repository = {
   is_shallow: boolean;
   selected: boolean;
   clone_path: string | null;
+  head_sha?: string | null;
+  index_fresh?: boolean;
 };
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

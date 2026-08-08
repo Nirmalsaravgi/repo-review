@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from repo_core.clone import CloneError, clone_or_fetch
 from repo_core.db import SessionLocal, current_org_id
+from repo_core.freshness import is_index_fresh, read_head_sha
 from repo_core.github_app import get_installation_token, list_installation_repos
 from repo_core.models import IndexRun, IndexStatus, Installation, Repository
 from repo_core.schemas import MessageOut, RepositoryOut, SelectRepoRequest
@@ -24,6 +25,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _repo_out(repo: Repository) -> RepositoryOut:
+    head = read_head_sha(repo.clone_path)
+    out = RepositoryOut.model_validate(repo)
+    out.head_sha = head
+    out.index_fresh = is_index_fresh(repo, head_sha=head)
+    return out
+
+
 @router.get("", response_model=list[RepositoryOut])
 async def list_repos(
     session: Annotated[SessionData, Depends(require_session)],
@@ -34,7 +43,7 @@ async def list_repos(
         .where(Repository.org_id == session.org_uuid)
         .order_by(Repository.full_name)
     )
-    return [RepositoryOut.model_validate(r) for r in result.scalars().all()]
+    return [_repo_out(r) for r in result.scalars().all()]
 
 
 @router.post("/sync", response_model=list[RepositoryOut])
@@ -137,7 +146,7 @@ async def select_repo(
         repo_id=str(repo.id),
         run_id=str(run.id),
     )
-    return RepositoryOut.model_validate(repo)
+    return _repo_out(repo)
 
 
 @router.get("/{repo_id}", response_model=RepositoryOut)
@@ -155,7 +164,7 @@ async def get_repo(
     repo = result.scalar_one_or_none()
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
-    return RepositoryOut.model_validate(repo)
+    return _repo_out(repo)
 
 
 @router.post("/{repo_id}/reclone", response_model=MessageOut)
@@ -254,13 +263,15 @@ async def _clone_repo_task(*, org_id: str, repo_id: str, run_id: str) -> None:
             }
             run.finished_at = datetime.now(UTC)
             await db.commit()
-            # Phase 1: deepen + history walk + PRs + ownership (async; chat works meanwhile).
+            # Phase 1: deepen + history. Phase 2: AST symbols (parallel; no deepen needed).
             try:
+                from worker.ingest.code_pipeline import enqueue_index_code
                 from worker.ingest.pipeline import enqueue_index_history
 
                 enqueue_index_history(org_id, repo_id)
+                enqueue_index_code(org_id, repo_id)
             except Exception:
-                logger.exception("Failed to enqueue index_history after clone")
+                logger.exception("Failed to enqueue index tasks after clone")
         except (CloneError, Exception) as exc:  # noqa: BLE001
             repo.index_status = IndexStatus.ERROR.value
             repo.index_error = str(exc)

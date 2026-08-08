@@ -1,23 +1,36 @@
 """System prompt, repo map, and question normalization.
 
-The repo map here is deliberately minimal (bounded depth-2 tree) — enough to
-orient the agent on turn one. The token-budgeted, tree-sitter-aware version is
-Slice 5; the agent works either way because it explores with tools.
+Repo map implementation lives in `repo_map.py` (Phase 2 P2): indexed signatures
+first, live parse fallback, then the Phase 0 file tree.
 """
 
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-from api.agent.tools.base import ToolError
-from api.agent.tools.filesystem import list_dir
+from api.agent.repo_map import (
+    MapSymbol,
+    build_file_tree_repo_map,
+    build_live_signature_repo_map,
+    build_repo_map,
+    format_signature_repo_map,
+    load_map_symbols,
+)
 
 SYSTEM_PROMPT = """You are a senior engineer helping a colleague understand a specific GitHub \
 repository. Answer only from evidence you gather with the provided tools.
 
-Tools available: list_dir, read_file, glob, grep. Use grep and glob to find things and \
-read_file to confirm what the code actually says before you answer.
+A repository map (file tree and/or code signatures) is provided for orientation. Use it to \
+pick starting points, then verify with tools before answering.
+
+Tool guidance:
+- find_symbol(name): exact / fuzzy symbol lookup — prefer for identifiers (FooBar, handle_checkout).
+- search_code(query): hybrid semantic+lexical search — prefer for conceptual questions.
+- grep / glob / read_file: keep using these for precise regexes, path filters, and verification.
+- git_* tools: ownership and history when the history index is available.
+
+Always read_file (or trust line numbers from tool hits you then verify) before citing. Do not \
+treat search snippets alone as sufficient evidence for a final answer.
 
 Rules:
 - Ground every factual claim in code you actually read. Never invent file paths, symbol \
@@ -30,33 +43,18 @@ a single line — e.g. [[src/app.py:10-24]]. Use real, current line numbers from
 - Be concise: point to the relevant path and lines rather than pasting large blocks."""
 
 
-def build_repo_map(root: Path, *, max_entries: int = 300) -> str:
-    """A bounded depth-2 listing of the repo, for first-turn orientation."""
-    lines = ["Repository layout (top levels — use list_dir/glob to go deeper):"]
-    count = 0
-    try:
-        top = list_dir(root, ".")
-    except ToolError:
-        return lines[0]
-
-    for entry in top.entries:
-        if count >= max_entries:
-            break
-        lines.append(f"{entry.path}{'/' if entry.type == 'dir' else ''}")
-        count += 1
-        if entry.type == "dir":
-            try:
-                sub = list_dir(root, entry.path)
-            except ToolError:
-                continue
-            for child in sub.entries:
-                if count >= max_entries:
-                    break
-                lines.append(f"  {child.path}{'/' if child.type == 'dir' else ''}")
-                count += 1
-    return "\n".join(lines)
-
-
 def normalize_question(question: str) -> str:
     """Canonical form for cache keys: lowercased, whitespace-collapsed."""
     return re.sub(r"\s+", " ", question.strip().lower())
+
+
+__all__ = [
+    "SYSTEM_PROMPT",
+    "MapSymbol",
+    "build_file_tree_repo_map",
+    "build_live_signature_repo_map",
+    "build_repo_map",
+    "format_signature_repo_map",
+    "load_map_symbols",
+    "normalize_question",
+]

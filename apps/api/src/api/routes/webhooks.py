@@ -180,11 +180,16 @@ async def _handle_installation_repos(payload: dict[str, Any]) -> None:
 
 
 async def _handle_push(payload: dict[str, Any]) -> None:
-    """Phase 0: mark selected repo stale and re-fetch shallow tip on push."""
+    """Phase 2 P6: fetch + incremental reparse/re-embed; keep chat available (READY)."""
     repo_payload = payload.get("repository") or {}
     github_repo_id = repo_payload.get("id")
     if not github_repo_id:
         return
+
+    ref = payload.get("ref") or ""
+    after_sha = payload.get("after") or None
+    if after_sha == "0000000000000000000000000000000000000000":
+        after_sha = None
 
     async with SessionLocal() as db:
         result = await db.execute(
@@ -197,8 +202,32 @@ async def _handle_push(payload: dict[str, Any]) -> None:
             text("SELECT set_config('app.current_org_id', :org_id, true)"),
             {"org_id": str(repo.org_id)},
         )
-        # Phase 0: queue as needing refresh; worker/reclone path can be wired next.
-        repo.index_status = IndexStatus.PENDING.value
+        # Ignore pushes to non-default branches.
+        expected_ref = f"refs/heads/{repo.default_branch}"
+        if ref and ref != expected_ref:
+            logger.info(
+                "Ignoring push to %s for %s (default is %s)",
+                ref,
+                repo.full_name,
+                repo.default_branch,
+            )
+            return
+
+        # Stay READY so chat keeps working; HEAD vs last_indexed_sha surfaces staleness
+        # until the Celery job finishes and advances last_indexed_sha.
         repo.updated_at = datetime.now(timezone.utc)
+        org_id = str(repo.org_id)
+        repo_id = str(repo.id)
         await db.commit()
-        logger.info("Push received for %s — marked pending refresh", repo.full_name)
+
+    from repo_core.freshness import changed_paths_from_push
+    from worker.ingest.incremental import enqueue_sync_on_push
+
+    paths = changed_paths_from_push(payload)
+    task_id = enqueue_sync_on_push(org_id, repo_id, paths=paths, after_sha=after_sha)
+    logger.info(
+        "Push for %s — enqueued sync_on_push task=%s paths=%s",
+        repo_id,
+        task_id,
+        len(paths),
+    )

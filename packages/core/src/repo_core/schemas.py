@@ -37,6 +37,9 @@ class RepositoryOut(ORMModel):
     is_shallow: bool
     selected: bool
     clone_path: str | None = None
+    # Phase 2 P6 — working-tree tip vs last successful code index
+    head_sha: str | None = None
+    index_fresh: bool = True
 
 
 class SessionOut(BaseModel):
@@ -126,5 +129,10 @@ class ContributionOut(BaseModel):
 
 
 class IndexHistoryOut(BaseModel):
+    message: str
+    task_id: str | None = None
+
+
+class IndexCodeOut(BaseModel):
     message: str
     task_id: str | None = None

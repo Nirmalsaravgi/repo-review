@@ -9,6 +9,7 @@ from repo_core.models import Author, Ownership, Repository
 from repo_core.schemas import (
     BusFactorOut,
     ContributionOut,
+    IndexCodeOut,
     IndexHistoryOut,
     OwnershipEntryOut,
 )
@@ -121,3 +122,23 @@ async def trigger_index_history(
             detail="Could not enqueue history index (is Redis/Celery available?)",
         )
     return IndexHistoryOut(message="History indexing enqueued", task_id=task_id)
+
+
+@router.post("/{repo_id}/index-code", response_model=IndexCodeOut)
+async def trigger_index_code(
+    repo_id: str,
+    session: Annotated[SessionData, Depends(require_session)],
+    db: Annotated[AsyncSession, Depends(tenant_db)],
+) -> IndexCodeOut:
+    repo = await _load_repo(db, session, repo_id)
+    if not repo.clone_path:
+        raise HTTPException(status_code=409, detail="Repository has not been cloned yet")
+    from worker.ingest.code_pipeline import enqueue_index_code
+
+    task_id = enqueue_index_code(str(session.org_uuid), str(repo.id))
+    if task_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not enqueue code index (is Redis/Celery available?)",
+        )
+    return IndexCodeOut(message="Code indexing enqueued", task_id=task_id)

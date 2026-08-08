@@ -129,12 +129,20 @@ export function RepoPicker({
                 <span className={styles.status} data-status={repo.index_status}>
                   {repo.index_status}
                   {repo.is_shallow && repo.index_status === "ready" ? " · shallow" : ""}
+                  {repo.index_status === "ready" && repo.index_fresh === false
+                    ? " · syncing"
+                    : ""}
                 </span>
                 {repo.index_error ? (
                   <span className={styles.errDetail}>{repo.index_error}</span>
                 ) : null}
                 {repo.last_indexed_sha ? (
-                  <span className={styles.sha}>{repo.last_indexed_sha.slice(0, 12)}</span>
+                  <span className={styles.sha}>
+                    idx {repo.last_indexed_sha.slice(0, 12)}
+                    {repo.head_sha && repo.head_sha !== repo.last_indexed_sha
+                      ? ` · head ${repo.head_sha.slice(0, 12)}`
+                      : ""}
+                  </span>
                 ) : null}
               </div>
               <button

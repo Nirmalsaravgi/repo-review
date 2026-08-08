@@ -161,15 +161,41 @@ def test_aggregate_reports_hallucination() -> None:
     assert report.hallucination_rate == 1.0
 
 
-def test_aggregate_history_hit_rate() -> None:
-    from evals.harness.metrics import ItemScore
-
-    scores = [
-        ItemScore(id="h1", category="history", history_hit=True, recall_at_k=1.0),
-        ItemScore(id="h2", category="history", history_hit=False, recall_at_k=0.0),
+async def test_run_item_captures_search_code_hits() -> None:
+    item = EvalItem(
+        id="locate-search",
+        category="locate",
+        question="where is search_code?",
+        expected_files=["api/agent/tools/search.py"],
+    )
+    script = [
+        Completion(
+            tool_calls=[ToolCall(name="find_symbol", arguments={"name": "search_code"})]
+        ),
+        Completion(text="Defined in [[api/agent/tools/search.py:1-20]]."),
     ]
-    report = aggregate(scores, k=10)
-    assert report.history_hit_rate == 0.5
+    agent = _agent(script)
+    result = await run_item(agent, item)
+    assert any("search.py" in p for p in result.retrieved_files)
+    score = score_item(item, result, k=10)
+    assert score.recall_at_k == 1.0
+
+
+def test_query_identifiers_prefers_code_tokens() -> None:
+    from api.retrieval.lexical import query_identifiers
+
+    toks = query_identifiers(
+        "Where are the agent's file tools list_dir, read_file, glob, and grep implemented?"
+    )
+    assert toks[0] in {"list_dir", "read_file"}
+    assert "Where" not in toks
+
+
+def test_dataset_includes_phase2_items() -> None:
+    dataset = load_dataset(DATASET)
+    ids = {i.id for i in dataset.items}
+    assert "locate-search-tools" in ids
+    assert "locate-hybrid-retrieval" in ids
 
 
 def _agent(script):

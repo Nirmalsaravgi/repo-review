@@ -20,7 +20,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:  # pragma: no cover — tests may import models before optional install
+    Vector = None  # type: ignore[misc, assignment]
+
 from repo_core.db import Base
+
+EMBEDDING_DIMS = 1024
 
 
 class IndexStatus(StrEnum):
@@ -331,7 +338,72 @@ class Ownership(Base):
     last_touched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-# Keep for Alembic discovery / Phase 2+ tables placeholder imports.
+# --------------------------------------------------------------------------- #
+# Phase 2 — persistent index (symbols first; chunks in 0005)
+# --------------------------------------------------------------------------- #
+class Symbol(Base):
+    __tablename__ = "symbols"
+    __table_args__ = (
+        Index("ix_symbols_repo_id", "repo_id"),
+        Index("ix_symbols_file_id", "file_id"),
+        Index("ix_symbols_repo_name", "repo_id", "name"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    file_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(512), nullable=False)
+    qualified_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    docstring: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_line: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_line: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_byte: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_byte: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+    __table_args__ = (
+        Index("ix_chunks_repo_id", "repo_id"),
+        Index("ix_chunks_file_id", "file_id"),
+        Index("ix_chunks_content_sha", "file_id", "content_sha"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    file_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+    )
+    symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="SET NULL"), nullable=True
+    )
+    start_line: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_line: Mapped[int] = mapped_column(Integer, nullable=False)
+    header: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_DIMS) if Vector is not None else Text, nullable=True
+    )
+
+
 TENANT_TABLES = (
     "users",
     "installations",
@@ -345,4 +417,6 @@ TENANT_TABLES = (
     "commit_files",
     "pull_requests",
     "ownership",
+    "symbols",
+    "chunks",
 )

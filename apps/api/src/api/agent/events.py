@@ -32,6 +32,8 @@ class ToolFinished:
     name: str
     ok: bool
     summary: str
+    # Full tool envelope (ok/result|error) for evals — not sent on the SSE wire.
+    payload: dict[str, Any] | None = None
 
 
 @dataclass

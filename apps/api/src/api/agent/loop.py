@@ -74,6 +74,7 @@ class Agent:
     org_id: UUID | None = None
     repo_id: UUID | None = None
     redis: Any | None = None
+    repo_map_text: str | None = None
     tools: list[dict[str, Any]] = field(default_factory=lambda: list(TOOL_SCHEMAS))
     cache: ResponseCache | None = None
     config: AgentConfig = field(default_factory=AgentConfig)
@@ -144,7 +145,7 @@ class Agent:
 
     # -- internals ---------------------------------------------------------- #
     def _initial_messages(self, question: str, history: list[Message]) -> list[Message]:
-        repo_map = build_repo_map(self.root)
+        repo_map = self.repo_map_text or build_repo_map(self.root)
         header = f"Repository: {self.repo_full_name or 'unknown'}\n\n{repo_map}"
         return [Message.system(SYSTEM_PROMPT), Message.system(header), *history, Message.user(question)]
 
@@ -181,6 +182,7 @@ class Agent:
                 name=call.name,
                 ok=bool(envelope.get("ok")),
                 summary=_summarize(call.name, envelope),
+                payload=envelope,
             )
             results.append(ToolResult(id=call.id, name=call.name, response=envelope))
         messages.append(Message.tool(results))
@@ -237,4 +239,7 @@ def _summarize(name: str, envelope: dict[str, Any]) -> str:
         return f"{result.get('sha', '')[:8]} @ {result.get('path')}:{result.get('line')}"
     if name == "why_here":
         return "blame + commit artifacts"
+    if name in {"search_code", "find_symbol"}:
+        hits = (result.get("hits") or []) if isinstance(result, dict) else []
+        return f"{len(hits)} hit(s)"
     return "ok"

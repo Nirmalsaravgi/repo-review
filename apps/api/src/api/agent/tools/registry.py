@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from api.agent.tools import git as git_tools
+from api.agent.tools import search as search_tools
 from api.agent.tools.base import ToolError
 from api.agent.tools.context import ToolContext
 from api.agent.tools.filesystem import glob_files, grep, list_dir, read_file
@@ -72,8 +73,9 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "name": "grep",
         "description": (
             "Search file contents for a regular expression across the repository. "
-            "Best for exact identifiers, strings, and symbols. Returns matching "
-            "lines with their file path and line number."
+            "Best for exact string / regex matches. For symbol names prefer "
+            "find_symbol; for conceptual questions prefer search_code. Keep using "
+            "grep when you need a precise pattern or path_filter."
         ),
         "parameters": {
             "type": "object",
@@ -89,6 +91,47 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 },
             },
             "required": ["pattern"],
+        },
+    },
+    {
+        "name": "search_code",
+        "description": (
+            "Hybrid search over the indexed repository (semantic chunks + lexical). "
+            "Use for conceptual questions like 'how does checkout charge the card?'. "
+            "Returns ranked file hits with snippets — then read_file to verify before citing."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language or keyword query.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max hits (default 10, max 20).",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "find_symbol",
+        "description": (
+            "Look up a code symbol by name (exact, prefix, or fuzzy) using the "
+            "symbol index, with grep fallback. Prefer this over grep for "
+            "identifiers like StripeGateway or handle_checkout."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Symbol name to find."},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max hits (default 10, max 20).",
+                },
+            },
+            "required": ["name"],
         },
     },
     {
@@ -186,7 +229,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 TOOL_NAMES = frozenset(s["name"] for s in TOOL_SCHEMAS)
 
-_ASYNC_TOOLS = frozenset({"who_owns", "why_here"})
+_ASYNC_TOOLS = frozenset({"who_owns", "why_here", "search_code", "find_symbol"})
 
 
 def _as_dict(result: Any) -> Any:
@@ -271,6 +314,16 @@ async def arun_tool(
             if "path" not in args or "line" not in args:
                 raise ToolError("Missing required arguments: path, line")
             result = await git_tools.why_here(ctx, args["path"], int(args["line"]))
+            return {"ok": True, "result": result}
+        if name == "search_code":
+            if "query" not in args:
+                raise ToolError("Missing required argument: query")
+            result = await search_tools.search_code(ctx, args["query"], args.get("limit", 10))
+            return {"ok": True, "result": result}
+        if name == "find_symbol":
+            if "name" not in args:
+                raise ToolError("Missing required argument: name")
+            result = await search_tools.find_symbol(ctx, args["name"], args.get("limit", 10))
             return {"ok": True, "result": result}
     except ToolError as exc:
         return {"ok": False, "error": str(exc)}

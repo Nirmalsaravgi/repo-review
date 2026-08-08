@@ -1,0 +1,453 @@
+{
+  "kind": "retrieval_eval",
+  "baseline_recall_at_10": 0.97,
+  "mean_lexical_recall_at_10": 0.3,
+  "mean_hybrid_recall_at_10": 0.675,
+  "gate_metric": "max(lexical, hybrid)",
+  "gate_score": 0.675,
+  "gate_verdict": "FAIL",
+  "n": 20,
+  "items": [
+    {
+      "id": "locate-fs-tools",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/auth.py",
+        "api/retrieval/lexical.py",
+        "api/routes/history.py",
+        "api/agent/repo_map.py"
+      ],
+      "hybrid_top": [
+        "api/agent/repo_map.py",
+        "api/routes/chat.py",
+        "api/routes/webhooks.py",
+        "api/routes/history.py",
+        "api/retrieval/lexical.py"
+      ],
+      "expected": [
+        "api/agent/tools/filesystem.py"
+      ]
+    },
+    {
+      "id": "locate-tool-registry",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/base.py",
+        "api/agent/prompt.py",
+        "api/retrieval/rrf.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "locate-path-safety",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/chat.py",
+        "api/routes/webhooks.py",
+        "api/routes/auth.py",
+        "api/routes/repos.py",
+        "api/routes/history.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/git.py",
+        "api/routes/chat.py",
+        "api/agent/repo_map.py",
+        "api/routes/webhooks.py",
+        "api/retrieval/lexical.py"
+      ],
+      "expected": [
+        "api/agent/tools/base.py"
+      ]
+    },
+    {
+      "id": "locate-chat-endpoint",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/registry.py",
+        "api/agent/prompt.py",
+        "api/agent/citations.py",
+        "api/routes/chat.py"
+      ],
+      "expected": [
+        "api/routes/chat.py"
+      ]
+    },
+    {
+      "id": "locate-citations",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/auth.py",
+        "api/routes/repos.py",
+        "api/routes/history.py",
+        "api/routes/chat.py"
+      ],
+      "hybrid_top": [
+        "api/routes/auth.py",
+        "api/agent/repo_map.py",
+        "api/retrieval/lexical.py",
+        "api/routes/webhooks.py",
+        "api/routes/chat.py"
+      ],
+      "expected": [
+        "api/agent/citations.py"
+      ]
+    },
+    {
+      "id": "locate-repo-map",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/repos.py",
+        "api/routes/history.py",
+        "api/routes/chat.py",
+        "api/routes/auth.py"
+      ],
+      "hybrid_top": [
+        "api/routes/chat.py",
+        "api/routes/webhooks.py",
+        "api/retrieval/lexical.py",
+        "api/routes/repos.py",
+        "api/agent/repo_map.py"
+      ],
+      "expected": [
+        "api/agent/prompt.py"
+      ]
+    },
+    {
+      "id": "locate-cache",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/base.py",
+        "api/agent/citations.py"
+      ],
+      "expected": [
+        "api/agent/cache.py"
+      ]
+    },
+    {
+      "id": "locate-webhook",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/auth.py",
+        "api/routes/webhooks.py",
+        "api/routes/chat.py",
+        "api/routes/repos.py",
+        "api/routes/history.py"
+      ],
+      "hybrid_top": [
+        "api/routes/chat.py",
+        "api/routes/webhooks.py",
+        "api/routes/history.py",
+        "api/retrieval/lexical.py",
+        "api/agent/repo_map.py"
+      ],
+      "expected": [
+        "api/routes/webhooks.py"
+      ]
+    },
+    {
+      "id": "locate-tenant-db",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/auth.py",
+        "api/routes/repos.py",
+        "api/routes/history.py",
+        "api/routes/chat.py"
+      ],
+      "hybrid_top": [
+        "api/routes/auth.py",
+        "api/routes/webhooks.py",
+        "api/routes/repos.py",
+        "api/agent/repo_map.py",
+        "api/agent/tools/git.py"
+      ],
+      "expected": [
+        "api/deps.py"
+      ]
+    },
+    {
+      "id": "flow-loop-tools",
+      "category": "flow",
+      "lexical_recall": 0.5,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/base.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/citations.py"
+      ],
+      "expected": [
+        "api/agent/loop.py",
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "flow-chat-agent",
+      "category": "flow",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/base.py",
+        "api/agent/context.py",
+        "api/retrieval/rrf.py"
+      ],
+      "expected": [
+        "api/routes/chat.py",
+        "api/agent/loop.py"
+      ]
+    },
+    {
+      "id": "flow-compaction",
+      "category": "flow",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.5,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/chat.py",
+        "api/routes/history.py",
+        "api/routes/repos.py",
+        "api/retrieval/lexical.py"
+      ],
+      "hybrid_top": [
+        "api/routes/webhooks.py",
+        "api/routes/chat.py",
+        "api/agent/tools/git.py",
+        "api/routes/history.py",
+        "api/routes/repos.py"
+      ],
+      "expected": [
+        "api/agent/loop.py",
+        "api/agent/context.py"
+      ]
+    },
+    {
+      "id": "exact-step-budget",
+      "category": "exact_string",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/loop.py",
+        "api/agent/context.py",
+        "api/agent/cache.py",
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py"
+      ],
+      "hybrid_top": [
+        "api/agent/context.py",
+        "api/agent/tools/registry.py",
+        "api/agent/loop.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/cache.py"
+      ],
+      "expected": [
+        "api/agent/loop.py"
+      ]
+    },
+    {
+      "id": "exact-citation-format",
+      "category": "exact_string",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/loop.py",
+        "api/agent/cache.py",
+        "api/agent/context.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/loop.py",
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/context.py",
+        "api/agent/cache.py"
+      ],
+      "expected": [
+        "api/agent/prompt.py"
+      ]
+    },
+    {
+      "id": "exact-unknown-tool",
+      "category": "exact_string",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/cache.py",
+        "api/agent/context.py",
+        "api/agent/loop.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/context.py",
+        "api/agent/loop.py",
+        "api/agent/tools/filesystem.py",
+        "api/agent/cache.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "locate-search-tools",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/repos.py",
+        "api/routes/history.py",
+        "api/routes/chat.py",
+        "api/routes/auth.py"
+      ],
+      "hybrid_top": [
+        "api/routes/chat.py",
+        "api/agent/repo_map.py",
+        "api/retrieval/lexical.py",
+        "api/routes/history.py",
+        "api/agent/tools/git.py"
+      ],
+      "expected": [
+        "api/agent/tools/search.py"
+      ]
+    },
+    {
+      "id": "locate-hybrid-retrieval",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/agent/repo_map.py",
+        "api/retrieval/lexical.py",
+        "api/routes/chat.py",
+        "api/routes/auth.py",
+        "api/routes/history.py"
+      ],
+      "hybrid_top": [
+        "api/routes/webhooks.py",
+        "api/routes/auth.py",
+        "api/routes/repos.py",
+        "api/routes/chat.py",
+        "api/routes/history.py"
+      ],
+      "expected": [
+        "api/retrieval/hybrid.py",
+        "api/retrieval/rrf.py"
+      ]
+    },
+    {
+      "id": "locate-semantic-retriever",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/filesystem.py",
+        "api/agent/tools/registry.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/base.py",
+        "api/agent/citations.py"
+      ],
+      "expected": [
+        "api/retrieval/semantic.py"
+      ]
+    },
+    {
+      "id": "locate-push-webhook",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/routes/repos.py",
+        "api/routes/history.py",
+        "api/routes/chat.py",
+        "api/routes/auth.py"
+      ],
+      "hybrid_top": [
+        "api/agent/repo_map.py",
+        "api/routes/history.py",
+        "api/routes/webhooks.py",
+        "api/routes/chat.py",
+        "api/routes/repos.py"
+      ],
+      "expected": [
+        "api/routes/webhooks.py"
+      ]
+    },
+    {
+      "id": "flow-search-registry",
+      "category": "flow",
+      "lexical_recall": 0.5,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/prompt.py",
+        "api/retrieval/rrf.py",
+        "api/agent/tools/base.py",
+        "api/agent/tools/filesystem.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/search.py"
+      ]
+    }
+  ]
+}

@@ -35,6 +35,7 @@ from api.agent import (
     ToolStarted,
 )
 from api.agent.cache import RedisResponseCache
+from api.agent.repo_map import build_repo_map, load_map_symbols
 from api.deps import require_session, tenant_db
 from api.redis_client import get_redis
 
@@ -88,6 +89,10 @@ async def chat(
     repo_full_name = repo.full_name
     repo_uuid = repo.id
 
+    # Prefer indexed signatures for orientation; live parse / file tree if empty.
+    map_symbols = await load_map_symbols(db, repo_uuid)
+    repo_map_text = build_repo_map(root, symbols=map_symbols or None)
+
     async def event_stream() -> AsyncIterator[dict[str, Any]]:
         yield {"event": "meta", "data": json.dumps({"conversation_id": str(conversation_id)})}
         try:
@@ -104,6 +109,7 @@ async def chat(
             org_id=org_id,
             repo_id=repo_uuid,
             redis=get_redis(),
+            repo_map_text=repo_map_text,
             cache=RedisResponseCache(get_redis()),
         )
         try:

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = ""
 
+    # Phase 2 embeddings — empty provider defaults to deterministic mock (local/dev).
+    embedding_provider: str = ""
+    embedding_api_key: str = ""
+    embedding_model: str = "voyage-code-3"
+    embedding_dims: int = 1024
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

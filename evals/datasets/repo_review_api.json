@@ -117,6 +117,36 @@
       "category": "unanswerable",
       "question": "Which file implements the LaunchDarkly feature-flag integration?",
       "expected_files": []
+    },
+    {
+      "id": "locate-search-tools",
+      "category": "locate",
+      "question": "Where are the Phase 2 agent tools search_code and find_symbol implemented?",
+      "expected_files": ["api/agent/tools/search.py"]
+    },
+    {
+      "id": "locate-hybrid-retrieval",
+      "category": "locate",
+      "question": "Where is reciprocal rank fusion and the HybridRetriever defined?",
+      "expected_files": ["api/retrieval/hybrid.py", "api/retrieval/rrf.py"]
+    },
+    {
+      "id": "locate-semantic-retriever",
+      "category": "locate",
+      "question": "Which file implements the SemanticRetriever that embeds a query for pgvector search?",
+      "expected_files": ["api/retrieval/semantic.py"]
+    },
+    {
+      "id": "locate-push-webhook",
+      "category": "locate",
+      "question": "Where does the GitHub push webhook enqueue incremental code reindexing?",
+      "expected_files": ["api/routes/webhooks.py"]
+    },
+    {
+      "id": "flow-search-registry",
+      "category": "flow",
+      "question": "How does the tool registry dispatch search_code to the search module? Which files are involved?",
+      "expected_files": ["api/agent/tools/registry.py", "api/agent/tools/search.py"]
     }
   ]
 }

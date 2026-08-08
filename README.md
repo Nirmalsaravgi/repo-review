@@ -7,6 +7,7 @@ intelligence.
 Companion docs:
 - [`repo-understanding-prd.md`](./repo-understanding-prd.md)
 - [`implementation-plan.md`](./implementation-plan.md)
+- [`phase-2-buildout.md`](./phase-2-buildout.md)
 
 ## Current status
 
@@ -20,6 +21,19 @@ tools, Gemini tool loop, SSE chat UI, conversation persistence, eval baseline (~
 - Read APIs: `/repos/{id}/ownership`, `/bus-factor`, `/contributions`, `POST .../index-history`
 - Web: History panel beside chat (contributors, ownership bars, bus-factor)
 - Eval: `evals/datasets/repo_review_history.json` + `history_hit_rate` in the harness
+
+**Phase 2** (persistent index) is in progress — see [`phase-2-buildout.md`](./phase-2-buildout.md):
+
+- **P1:** `symbols` table + `packages/parsing` (tree-sitter Python/TS/JS) + Celery `index_code`
+- **P2:** token-budgeted signature repo map in the agent prompt (indexed symbols → live parse → file tree)
+- **P3:** AST chunks + embeddings (`chunks` / pgvector HNSW; Voyage or mock); wired into `index_code`
+- **P4:** hybrid retrieval (`api.retrieval` — semantic + lexical + RRF)
+- **P5:** agent tools `search_code` / `find_symbol` (grep/read_file retained)
+- **P6:** push → incremental fetch/reparse/re-embed; freshness (`index_fresh` / head vs idx sha)
+- **P7:** eval gate — dataset expanded; retrieval recall@10 = 1.00 (hybrid) vs baseline 0.97;
+  live agent gate via `evals/run_eval.py`
+
+**Phase 2 complete** for buildout P1–P7. Next roadmap phase: **Phase 3** (call graph, blast radius, maps).
 
 ## Prerequisites
 
@@ -69,7 +83,7 @@ Open http://localhost:3000
 > **Ports:** Postgres is on **5433**, API on **8001**, to avoid clashes with other local Docker stacks that already use 5432/8000.
 >
 > After you select a repo, the API shallow-clones immediately (chat works), then enqueues
-> `index_history` on the Celery worker (deepen + commits + PRs + ownership).
+> `index_history` (deepen + commits + PRs + ownership) and `index_code` (AST symbols) on Celery.
 
 ## GitHub App configuration
 
@@ -109,11 +123,12 @@ GITHUB_APP_SLUG=your-app-slug
 
 ```
 apps/api          FastAPI (auth, repos, chat, history)
-apps/worker       Celery (deepen, history walk, PRs, ownership)
+apps/worker       Celery (history + code/symbol ingest)
 apps/web          Next.js UI
 packages/core     Shared models, GitHub App helpers, clone service
 packages/providers LLM provider interface (Gemini)
-alembic           Migrations (0001–0003)
+packages/parsing  Tree-sitter symbol extraction (Phase 2)
+alembic           Migrations (0001–0005)
 infra/postgres    DB init (extensions + app role)
-evals             Phase 0 eval harness + baseline
+evals             Phase 0–2 eval harness + retrieval/agent gates
 ```

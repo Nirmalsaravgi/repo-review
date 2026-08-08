@@ -23,7 +23,7 @@ from repo_providers import get_llm_provider
 
 from evals.harness.dataset import EvalItem, load_dataset
 from evals.harness.report import format_report, report_to_dict
-from evals.harness.runner import run_dataset
+from evals.harness.runner import PHASE0_BASELINE_RECALL_AT_10, gate_verdict, run_dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = PROJECT_ROOT / "evals" / "datasets" / "repo_review_api.json"
@@ -37,7 +37,8 @@ async def main() -> None:
     root = (PROJECT_ROOT / dataset.root).resolve()
     # Throttle to ~12 req/min so a free-tier key (15/min) doesn't hit 429s.
     provider = get_llm_provider(min_request_interval=5.0)
-    print(f"model: {provider.model} | root: {root} | questions: {len(dataset.items)}\n")
+    print(f"model: {provider.model} | root: {root} | questions: {len(dataset.items)}")
+    print(f"Phase 0 baseline recall@10: {PHASE0_BASELINE_RECALL_AT_10:.2f}\n")
 
     def make_agent(_item: EvalItem) -> Agent:
         # Fresh agent per question, no cache — we want real runs.
@@ -45,12 +46,16 @@ async def main() -> None:
 
     results, report = await run_dataset(make_agent, dataset.items)
     print(format_report(report))
+    verdict = gate_verdict(report.mean_recall_at_k)
+    print(f"\nPhase 2 gate: {verdict}")
 
     out_dir = PROJECT_ROOT / "evals" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}.json"
     out_path.write_text(json.dumps(report_to_dict(report, results), indent=2), encoding="utf-8")
     print(f"\nwrote {out_path}")
+    if verdict != "PASS":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

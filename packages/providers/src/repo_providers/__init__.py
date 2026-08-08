@@ -17,13 +17,22 @@ from repo_providers.base import (
     ToolResult,
     Usage,
 )
-from repo_providers.factory import build_llm_provider, get_llm_provider
+from repo_providers.embeddings import EmbeddingProvider
+from repo_providers.factory import (
+    build_embedding_provider,
+    build_llm_provider,
+    get_embedding_provider,
+    get_llm_provider,
+)
 from repo_providers.mock import MockProvider
+from repo_providers.mock_embeddings import MockEmbeddingProvider
 
 __all__ = [
     "Completion",
+    "EmbeddingProvider",
     "LLMProvider",
     "Message",
+    "MockEmbeddingProvider",
     "MockProvider",
     "ProviderError",
     "Role",
@@ -33,6 +42,8 @@ __all__ = [
     "ToolCallDelta",
     "ToolResult",
     "Usage",
+    "build_embedding_provider",
     "build_llm_provider",
+    "get_embedding_provider",
     "get_llm_provider",
 ]

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from repo_providers.base import LLMProvider, ProviderError
+from repo_providers.embeddings import EmbeddingProvider
 
 if TYPE_CHECKING:  # pragma: no cover
     from repo_core.config import Settings
@@ -45,4 +46,41 @@ def get_llm_provider(
         api_key=settings.llm_api_key,
         model=settings.llm_model,
         min_request_interval=min_request_interval,
+    )
+
+
+def build_embedding_provider(
+    *,
+    provider: str,
+    api_key: str = "",
+    model: str = "",
+    dimensions: int = 1024,
+) -> EmbeddingProvider:
+    name = (provider or "").strip().lower()
+    if not name or name in {"mock", "fake", "hash"}:
+        from repo_providers.mock_embeddings import MockEmbeddingProvider
+
+        return MockEmbeddingProvider(model=model or "mock-hash", dimensions=dimensions)
+    if name == "voyage":
+        from repo_providers.voyage import VoyageEmbeddingProvider
+
+        return VoyageEmbeddingProvider(
+            api_key=api_key,
+            model=model or "voyage-code-3",
+            dimensions=dimensions,
+        )
+    raise ProviderError(
+        f"Unsupported EMBEDDING_PROVIDER: {provider!r}. Use 'voyage' or 'mock'."
+    )
+
+
+def get_embedding_provider(settings: Settings | None = None) -> EmbeddingProvider:
+    from repo_core.config import get_settings
+
+    settings = settings or get_settings()
+    return build_embedding_provider(
+        provider=settings.embedding_provider,
+        api_key=settings.embedding_api_key,
+        model=settings.embedding_model,
+        dimensions=settings.embedding_dims,
     )
