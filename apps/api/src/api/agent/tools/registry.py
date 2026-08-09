@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from api.agent.tools import git as git_tools
+from api.agent.tools import graph as graph_tools
 from api.agent.tools import search as search_tools
 from api.agent.tools.base import ToolError
 from api.agent.tools.context import ToolContext
@@ -225,11 +226,52 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             "required": ["tag_a", "tag_b"],
         },
     },
+    {
+        "name": "analyze_impact",
+        "description": (
+            "Blast radius: what (transitively) depends on a symbol, from the call "
+            "graph. Use for 'what breaks if I change X?'. Results are grouped by "
+            "category (tests, routes, workers, cron) and each carries a confidence — "
+            "approximate (name-match) links are lower. Verify with read_file before "
+            "asserting a change is safe."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Symbol name to analyze (e.g. charge_card)."},
+                "max_depth": {
+                    "type": "integer",
+                    "description": "Max reverse-traversal depth (default 4, max 6).",
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
+    {
+        "name": "call_flow",
+        "description": (
+            "Forward call trace from a symbol: the ordered chain of callees, plus a "
+            "Mermaid diagram. Use to explain 'how does X work' as a sequence of calls."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Symbol name to trace from."},
+                "max_depth": {
+                    "type": "integer",
+                    "description": "Max forward-traversal depth (default 3, max 6).",
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
 ]
 
 TOOL_NAMES = frozenset(s["name"] for s in TOOL_SCHEMAS)
 
-_ASYNC_TOOLS = frozenset({"who_owns", "why_here", "search_code", "find_symbol"})
+_ASYNC_TOOLS = frozenset(
+    {"who_owns", "why_here", "search_code", "find_symbol", "analyze_impact", "call_flow"}
+)
 
 
 def _as_dict(result: Any) -> Any:
@@ -324,6 +366,16 @@ async def arun_tool(
             if "name" not in args:
                 raise ToolError("Missing required argument: name")
             result = await search_tools.find_symbol(ctx, args["name"], args.get("limit", 10))
+            return {"ok": True, "result": result}
+        if name == "analyze_impact":
+            if "symbol" not in args:
+                raise ToolError("Missing required argument: symbol")
+            result = await graph_tools.analyze_impact(ctx, args["symbol"], args.get("max_depth", 4))
+            return {"ok": True, "result": result}
+        if name == "call_flow":
+            if "symbol" not in args:
+                raise ToolError("Missing required argument: symbol")
+            result = await graph_tools.call_flow(ctx, args["symbol"], args.get("max_depth", 3))
             return {"ok": True, "result": result}
     except ToolError as exc:
         return {"ok": False, "error": str(exc)}

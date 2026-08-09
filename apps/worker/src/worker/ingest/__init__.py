@@ -2,9 +2,9 @@
 
 Importing this package registers its Celery tasks (their decorators run on import).
 Ingestion logic is written as plain async functions so it is unit-testable; the
-Celery tasks are thin `asyncio.run` wrappers around them.
+Celery tasks are thin `run_async` wrappers around them (dispose engine per task).
 """
 
-from worker.ingest import clone, code_pipeline, incremental, pipeline
+from worker.ingest import clone, code_pipeline, graph, incremental, pipeline
 
-__all__ = ["clone", "code_pipeline", "incremental", "pipeline"]
+__all__ = ["clone", "code_pipeline", "graph", "incremental", "pipeline"]

@@ -10,6 +10,7 @@ from repo_core.schemas import (
     BusFactorOut,
     ContributionOut,
     IndexCodeOut,
+    IndexGraphOut,
     IndexHistoryOut,
     OwnershipEntryOut,
 )
@@ -142,3 +143,23 @@ async def trigger_index_code(
             detail="Could not enqueue code index (is Redis/Celery available?)",
         )
     return IndexCodeOut(message="Code indexing enqueued", task_id=task_id)
+
+
+@router.post("/{repo_id}/index-graph", response_model=IndexGraphOut)
+async def trigger_index_graph(
+    repo_id: str,
+    session: Annotated[SessionData, Depends(require_session)],
+    db: Annotated[AsyncSession, Depends(tenant_db)],
+) -> IndexGraphOut:
+    repo = await _load_repo(db, session, repo_id)
+    if not repo.clone_path:
+        raise HTTPException(status_code=409, detail="Repository has not been cloned yet")
+    from worker.ingest.graph import enqueue_index_graph
+
+    task_id = enqueue_index_graph(str(session.org_uuid), str(repo.id))
+    if task_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not enqueue graph index (is Redis/Celery available?)",
+        )
+    return IndexGraphOut(message="Graph indexing enqueued", task_id=task_id)

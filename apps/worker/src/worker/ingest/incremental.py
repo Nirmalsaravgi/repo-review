@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -127,6 +126,18 @@ async def sync_on_push(
             )
             stats["embed"] = embed_stats
 
+            # Phase 3 — patch call-graph edges for the changed files only.
+            from worker.ingest.graph import sync_and_build_edges
+
+            graph_stats = await sync_and_build_edges(
+                db,
+                org_id=org_uuid,
+                repo_id=repo_uuid,
+                clone_path=clone_path,
+                only_file_ids=changed_ids or None,
+            )
+            stats["graph"] = graph_stats
+
             repo = await db.get(Repository, repo_uuid)
             run = await db.get(IndexRun, run_id)
             if repo:
@@ -167,7 +178,9 @@ def sync_on_push_task(
     paths: list[str] | None = None,
     after_sha: str | None = None,
 ) -> dict[str, Any]:
-    return asyncio.run(
+    from worker.async_utils import run_async
+
+    return run_async(
         sync_on_push(org_id, repo_id, paths=paths or [], after_sha=after_sha)
     )
 

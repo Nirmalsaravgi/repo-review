@@ -7,7 +7,6 @@ API restarts.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -77,4 +76,6 @@ async def deepen_repo(org_id: str, repo_id: str) -> dict[str, Any]:
 
 @celery_app.task(name="worker.ingest.deepen_repo")
 def deepen_repo_task(org_id: str, repo_id: str) -> dict[str, Any]:
-    return asyncio.run(deepen_repo(org_id, repo_id))
+    from worker.async_utils import run_async
+
+    return run_async(deepen_repo(org_id, repo_id))

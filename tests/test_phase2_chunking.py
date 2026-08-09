@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 from repo_core.models import EMBEDDING_DIMS, TENANT_TABLES, Chunk
-from repo_parsing.chunking import build_scope_header, chunk_file_symbols
+from repo_parsing.chunking import build_scope_header, chunk_file_symbols, scrub_pg_text
 from repo_providers import MockEmbeddingProvider, build_embedding_provider
 from worker.ingest.semantic import cosine_distance, rank_by_embedding
 
@@ -96,6 +96,25 @@ def test_chunk_file_top_level_symbols() -> None:
     assert any("beta" in c.header for c in chunks)
     assert all(c.content_sha for c in chunks)
     assert all(c.embed_text.startswith("// Repo:") for c in chunks)
+
+
+def test_scrub_pg_text_strips_nul() -> None:
+    assert scrub_pg_text("ok") == "ok"
+    assert scrub_pg_text("a\x00b\x00c") == "abc"
+
+
+def test_chunk_file_strips_nul_bytes() -> None:
+    source = b"def alpha():\n    return '\x00bad'\n"
+    chunks = chunk_file_symbols(
+        repo_full_name="t/r",
+        path="m.py",
+        language="python",
+        source=source,
+        symbols=[],
+    )
+    assert chunks
+    assert "\x00" not in chunks[0].content
+    assert "\x00" not in chunks[0].embed_text
 
 
 @pytest.mark.asyncio

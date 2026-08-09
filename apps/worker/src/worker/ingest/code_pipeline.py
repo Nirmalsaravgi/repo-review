@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -14,6 +13,7 @@ from sqlalchemy import select
 
 from worker import celery_app
 from worker.ingest.embed import sync_and_embed_repo
+from worker.ingest.graph import sync_and_build_edges
 from worker.ingest.parse import sync_and_parse_repo
 
 logger = logging.getLogger(__name__)
@@ -47,12 +47,14 @@ async def index_code(org_id: str, repo_id: str) -> dict[str, Any]:
         full_name = repo.full_name
 
     try:
+        # Separate sessions so a later stage failure does not roll back symbols.
         async with session_scope(org_uuid) as db:
             parse_stats, changed_ids = await sync_and_parse_repo(
                 db, org_id=org_uuid, repo_id=repo_uuid, clone_path=clone_path
             )
             stats["parse"] = parse_stats
 
+        async with session_scope(org_uuid) as db:
             embed_stats = await sync_and_embed_repo(
                 db,
                 org_id=org_uuid,
@@ -62,6 +64,13 @@ async def index_code(org_id: str, repo_id: str) -> dict[str, Any]:
                 changed_file_ids=changed_ids,
             )
             stats["embed"] = embed_stats
+
+        async with session_scope(org_uuid) as db:
+            # Phase 3 — build the call graph from the symbols just parsed.
+            graph_stats = await sync_and_build_edges(
+                db, org_id=org_uuid, repo_id=repo_uuid, clone_path=clone_path
+            )
+            stats["graph"] = graph_stats
 
             run = await db.get(IndexRun, run_id)
             if run:
@@ -84,7 +93,9 @@ async def index_code(org_id: str, repo_id: str) -> dict[str, Any]:
 
 @celery_app.task(name="worker.ingest.index_code")
 def index_code_task(org_id: str, repo_id: str) -> dict[str, Any]:
-    return asyncio.run(index_code(org_id, repo_id))
+    from worker.async_utils import run_async
+
+    return run_async(index_code(org_id, repo_id))
 
 
 def enqueue_index_code(org_id: str, repo_id: str) -> str | None:

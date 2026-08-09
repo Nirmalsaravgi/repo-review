@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -115,7 +114,9 @@ async def index_history(org_id: str, repo_id: str) -> dict[str, Any]:
 
 @celery_app.task(name="worker.ingest.index_history")
 def index_history_task(org_id: str, repo_id: str) -> dict[str, Any]:
-    return asyncio.run(index_history(org_id, repo_id))
+    from worker.async_utils import run_async
+
+    return run_async(index_history(org_id, repo_id))
 
 
 def enqueue_index_history(org_id: str, repo_id: str) -> str | None:

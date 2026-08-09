@@ -43,6 +43,13 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
 
 
+def scrub_pg_text(text: str) -> str:
+    """Postgres ``text``/``varchar`` reject NUL (0x00); strip before insert."""
+    if "\x00" not in text:
+        return text
+    return text.replace("\x00", "")
+
+
 def build_scope_header(
     *,
     repo_full_name: str,
@@ -160,6 +167,8 @@ def _emit_parts(
         signature=signature,
         imports=imports,
     )
+    header = scrub_pg_text(header)
+    body = scrub_pg_text(body)
     embed_text = f"{header}\n\n{body}"
     if len(embed_text) <= _MAX_EMBED_CHARS:
         return [
@@ -206,6 +215,8 @@ def _emit_parts(
             signature=signature,
             imports=imports,
         )
+        part_header = scrub_pg_text(part_header)
+        part_body = scrub_pg_text(part_body)
         part_embed = f"{part_header}\n\n{part_body}"
         out.append(
             BuiltChunk(
@@ -231,7 +242,9 @@ def _merge_tiny(chunks: list[BuiltChunk]) -> list[BuiltChunk]:
     for ch in chunks[1:]:
         prev = merged[-1]
         if len(ch.content) < _MIN_BODY_CHARS and prev.end_line + 1 >= ch.start_line - 2:
-            body = prev.content + ("\n" if not prev.content.endswith("\n") else "") + ch.content
+            body = scrub_pg_text(
+                prev.content + ("\n" if not prev.content.endswith("\n") else "") + ch.content
+            )
             # Rebuild embed with previous header lines but updated range — keep prev header
             # symbol identity; extend end_line.
             header_lines = prev.header.splitlines()
@@ -239,7 +252,7 @@ def _merge_tiny(chunks: list[BuiltChunk]) -> list[BuiltChunk]:
                 # replace line range in file header if present
                 rest = header_lines[1].split("(lines ", 1)[0]
                 header_lines[1] = f"{rest}(lines {prev.start_line}-{ch.end_line})"
-            header = "\n".join(header_lines)
+            header = scrub_pg_text("\n".join(header_lines))
             embed = f"{header}\n\n{body}"
             merged[-1] = BuiltChunk(
                 symbol_id=prev.symbol_id,

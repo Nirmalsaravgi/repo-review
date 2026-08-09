@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Repository } from "@/lib/api";
 import { ChatPanel } from "./ChatPanel";
+import { GraphPanel } from "./GraphPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import styles from "./RepoPicker.module.css";
 
@@ -90,8 +91,8 @@ export function RepoPicker({
         <div>
           <h1 className={styles.title}>Select a repository</h1>
           <p className={styles.copy}>
-            Selecting a repo starts a shallow clone for chat. History indexing (ownership,
-            bus-factor) runs in the background via Celery after the clone is ready.
+            Selecting a repo starts a shallow clone for chat. History indexing and code/structure
+            indexing (symbols, call graph) run in the background via Celery after the clone is ready.
           </p>
         </div>
         <div className={styles.actions}>
@@ -165,6 +166,7 @@ export function RepoPicker({
       {activeRepo ? (
         <div className={styles.workspace}>
           <ChatPanel repo={activeRepo} />
+          <GraphPanel repo={activeRepo} />
           <HistoryPanel repo={activeRepo} />
         </div>
       ) : (

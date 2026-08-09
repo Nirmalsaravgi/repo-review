@@ -76,7 +76,14 @@ async def _persist_batch(
     authors: dict[str, Author],
     files: dict[str, FileRecord],
 ) -> int:
+    """Insert authors/files/commits first, then commit_files.
+
+    Client-assigned UUIDs mean SQLAlchemy cannot infer FK insert order, so a
+    single flush of FileRecord + CommitFile can violate commit_files_file_id_fkey.
+    """
     files_touched = 0
+    pending_commit_files: list[CommitFile] = []
+
     for item in batch:
         author = authors.get(item.author_email)
         if author is None:
@@ -131,7 +138,7 @@ async def _persist_batch(
                     file_row.blob_sha = change.blob_sha
                 file_row.is_deleted = change.change_type == "deleted"
 
-            db.add(
+            pending_commit_files.append(
                 CommitFile(
                     id=uuid4(),
                     org_id=org_id,
@@ -143,5 +150,10 @@ async def _persist_batch(
                 )
             )
             files_touched += 1
+
+    # Land parents before commit_files FK rows.
+    await db.flush()
+    for row in pending_commit_files:
+        db.add(row)
 
     return files_touched

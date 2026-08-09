@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from repo_core.models import EMBEDDING_DIMS, Chunk, FileRecord, Symbol
 from repo_parsing.chunking import BuiltChunk, chunk_file_symbols
+from repo_parsing.languages import DETECTED_EXTENSIONS
 from repo_providers.embeddings import EmbeddingProvider
 from repo_providers.factory import get_embedding_provider
 from sqlalchemy import delete, func, select
@@ -17,6 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 _EMBED_BATCH = 32
+
+
+def _is_embeddable_path(path: str) -> bool:
+    """History may register every touched path; only embed parseable sources."""
+    lower = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if lower.endswith((".lock", ".min.js", ".min.css")):
+        return False
+    if lower in {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock"}:
+        return False
+    ext = "." + lower.rsplit(".", 1)[-1] if "." in lower else ""
+    return ext in DETECTED_EXTENSIONS
 
 
 async def sync_and_embed_repo(
@@ -58,6 +70,10 @@ async def sync_and_embed_repo(
     pending: list[tuple[FileRecord, list[BuiltChunk]]] = []
 
     for rec in files:
+        if not _is_embeddable_path(rec.path):
+            files_skipped += 1
+            continue
+
         has_chunks = chunk_counts.get(rec.id, 0) > 0
         must = (changed_file_ids is not None and rec.id in changed_file_ids) or not has_chunks
         if not must:
@@ -69,6 +85,12 @@ async def sync_and_embed_repo(
             source = abs_path.read_bytes()
         except OSError:
             errors += 1
+            continue
+
+        # Binary / corrupt sources: NUL is valid UTF-8 but illegal in Postgres text.
+        if b"\x00" in source:
+            logger.info("skip binary/NUL content for chunking: %s", rec.path)
+            files_skipped += 1
             continue
 
         sym_result = await db.execute(select(Symbol).where(Symbol.file_id == rec.id))

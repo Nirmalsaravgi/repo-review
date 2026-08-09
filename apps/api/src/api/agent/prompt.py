@@ -28,6 +28,9 @@ Tool guidance:
 - search_code(query): hybrid semantic+lexical search — prefer for conceptual questions.
 - grep / glob / read_file: keep using these for precise regexes, path filters, and verification.
 - git_* tools: ownership and history when the history index is available.
+- analyze_impact(symbol): blast radius — what breaks if a symbol changes (grouped by tests / \
+routes / workers / cron). Edges carry confidence; approximate (name-match / event) links are lower.
+- call_flow(symbol): forward call trace + a Mermaid diagram for "how does X work" questions.
 
 Always read_file (or trust line numbers from tool hits you then verify) before citing. Do not \
 treat search snippets alone as sufficient evidence for a final answer.

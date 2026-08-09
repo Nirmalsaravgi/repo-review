@@ -1,0 +1,55 @@
+{
+  "name": "repo_review_graph",
+  "root": ".",
+  "description": "Phase 3 C7 blast-radius gate. For each target symbol, the files that contain a known direct/transitive caller. Scored by reverse-traversal (blast radius) caller recall over the pure call-graph resolver.",
+  "category": "blast_radius",
+  "items": [
+    {
+      "id": "blast-extract-symbols",
+      "target": "extract_symbols",
+      "expected_callers": [
+        "apps/worker/src/worker/ingest/parse.py",
+        "evals/run_retrieval_eval.py"
+      ]
+    },
+    {
+      "id": "blast-extract-references",
+      "target": "extract_references",
+      "expected_callers": [
+        "apps/worker/src/worker/ingest/graph.py",
+        "tests/test_phase3_references.py"
+      ]
+    },
+    {
+      "id": "blast-resolve-graph",
+      "target": "resolve_graph",
+      "expected_callers": [
+        "apps/worker/src/worker/ingest/graph.py",
+        "tests/test_phase3_resolve.py"
+      ]
+    },
+    {
+      "id": "blast-compute-blast-radius",
+      "target": "compute_blast_radius",
+      "expected_callers": [
+        "apps/api/src/api/graph/blast.py",
+        "tests/test_phase3_blast.py"
+      ]
+    },
+    {
+      "id": "blast-categorize-path",
+      "target": "categorize_path",
+      "expected_callers": [
+        "apps/api/src/api/graph/blast.py"
+      ]
+    },
+    {
+      "id": "blast-recall-at-k",
+      "target": "recall_at_k",
+      "expected_callers": [
+        "evals/harness/runner.py",
+        "evals/run_retrieval_eval.py"
+      ]
+    }
+  ]
+}

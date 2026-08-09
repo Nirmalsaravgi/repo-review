@@ -1,0 +1,77 @@
+{
+  "kind": "graph_eval",
+  "note": "Blast-radius caller recall over the pure call-graph resolver (no LLM/Postgres).",
+  "root": ".",
+  "symbols": 1444,
+  "edges": 2120,
+  "call_edges": 1328,
+  "mean_caller_recall": 1.0,
+  "n": 6,
+  "items": [
+    {
+      "id": "blast-extract-symbols",
+      "target": "extract_symbols",
+      "recall": 1.0,
+      "expected": [
+        "apps/worker/src/worker/ingest/parse.py",
+        "evals/run_retrieval_eval.py"
+      ],
+      "missing": [],
+      "n_callers_found": 14
+    },
+    {
+      "id": "blast-extract-references",
+      "target": "extract_references",
+      "recall": 1.0,
+      "expected": [
+        "apps/worker/src/worker/ingest/graph.py",
+        "tests/test_phase3_references.py"
+      ],
+      "missing": [],
+      "n_callers_found": 8
+    },
+    {
+      "id": "blast-resolve-graph",
+      "target": "resolve_graph",
+      "recall": 1.0,
+      "expected": [
+        "apps/worker/src/worker/ingest/graph.py",
+        "tests/test_phase3_resolve.py"
+      ],
+      "missing": [],
+      "n_callers_found": 7
+    },
+    {
+      "id": "blast-compute-blast-radius",
+      "target": "compute_blast_radius",
+      "recall": 1.0,
+      "expected": [
+        "apps/api/src/api/graph/blast.py",
+        "tests/test_phase3_blast.py"
+      ],
+      "missing": [],
+      "n_callers_found": 10
+    },
+    {
+      "id": "blast-categorize-path",
+      "target": "categorize_path",
+      "recall": 1.0,
+      "expected": [
+        "apps/api/src/api/graph/blast.py"
+      ],
+      "missing": [],
+      "n_callers_found": 7
+    },
+    {
+      "id": "blast-recall-at-k",
+      "target": "recall_at_k",
+      "recall": 1.0,
+      "expected": [
+        "evals/harness/runner.py",
+        "evals/run_retrieval_eval.py"
+      ],
+      "missing": [],
+      "n_callers_found": 5
+    }
+  ]
+}

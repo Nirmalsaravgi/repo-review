@@ -136,3 +136,64 @@ class IndexHistoryOut(BaseModel):
 class IndexCodeOut(BaseModel):
     message: str
     task_id: str | None = None
+
+
+class IndexGraphOut(BaseModel):
+    message: str
+    task_id: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Phase 3 — structure & visualization
+# --------------------------------------------------------------------------- #
+class ModuleNodeOut(BaseModel):
+    id: str
+    label: str
+    symbol_count: int
+    layer: int
+    x: float
+    y: float
+
+
+class ModuleEdgeOut(BaseModel):
+    src: str
+    dst: str
+    weight: int
+    confidence: float
+
+
+class ModuleGraphOut(BaseModel):
+    nodes: list[ModuleNodeOut] = Field(default_factory=list)
+    edges: list[ModuleEdgeOut] = Field(default_factory=list)
+
+
+class ImpactItemOut(BaseModel):
+    name: str
+    path: str
+    kind: str
+    depth: int
+    confidence: float
+
+
+class BlastRadiusOut(BaseModel):
+    symbol: str
+    target: dict | None = None
+    total: int = 0
+    by_category: dict[str, list[ImpactItemOut]] = Field(default_factory=dict)
+    note: str | None = None
+
+
+class CallFlowStepOut(BaseModel):
+    src: str
+    dst: str
+    kind: str
+    confidence: float
+    depth: int
+
+
+class CallFlowOut(BaseModel):
+    symbol: str
+    target: dict | None = None
+    steps: list[CallFlowStepOut] = Field(default_factory=list)
+    mermaid: str | None = None
+    note: str | None = None

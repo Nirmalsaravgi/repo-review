@@ -404,6 +404,48 @@ class Chunk(Base):
     )
 
 
+# --------------------------------------------------------------------------- #
+# Phase 3 — structure (call graph + dynamic edges)
+# --------------------------------------------------------------------------- #
+class Edge(Base):
+    """A directed relationship between symbols (or files, for imports).
+
+    `dst_symbol_id` is nullable: dynamic edges (emit/subscribe, routes) and
+    unresolved call sites keep the target `dst_name` without a resolved symbol.
+    Every edge carries `confidence` + `resolution_method` so the UI can be
+    honest about approximate (name-match / string-literal) vs resolved edges.
+    """
+
+    __tablename__ = "edges"
+    __table_args__ = (
+        Index("ix_edges_repo_dst", "repo_id", "dst_symbol_id"),
+        Index("ix_edges_repo_src", "repo_id", "src_symbol_id"),
+        Index("ix_edges_src_file", "src_file_id"),
+        Index("ix_edges_repo_dstname", "repo_id", "kind", "dst_name"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    src_symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="CASCADE"), nullable=True
+    )
+    dst_symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="CASCADE"), nullable=True
+    )
+    dst_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    resolution_method: Mapped[str] = mapped_column(String(32), nullable=False)
+    src_file_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=True
+    )
+
+
 TENANT_TABLES = (
     "users",
     "installations",
@@ -419,4 +461,5 @@ TENANT_TABLES = (
     "ownership",
     "symbols",
     "chunks",
+    "edges",
 )
