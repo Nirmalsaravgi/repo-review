@@ -1,0 +1,195 @@
+{
+  "kind": "understanding_eval",
+  "note": "Layer A facts + pure call-graph (no LLM/Postgres).",
+  "mean_recall": 0.9706,
+  "hallucination_rate": 0.0,
+  "gate": "PASS",
+  "n": 17,
+  "suites": [
+    {
+      "id": "fixture",
+      "root": "tests/fixtures/understanding",
+      "n": 9,
+      "mean_recall": 1.0,
+      "hallucination_rate": 0.0,
+      "files": 5,
+      "endpoints": 2,
+      "items": [
+        {
+          "recall": 1.0,
+          "missing": {},
+          "id": "fix-brief-stack",
+          "kind": "brief"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/main.py",
+            "apps/web/src/app/page.tsx",
+            "apps/worker/worker.py"
+          ],
+          "id": "fix-entry",
+          "kind": "entry"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_found": 2,
+          "id": "fix-api",
+          "kind": "api"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-web",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-api",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-worker",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "hallucinated": false,
+          "id": "fix-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/payments.py"
+          ],
+          "id": "fix-flow-create",
+          "kind": "flow"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_callers_found": 2,
+          "id": "fix-impact-charge",
+          "kind": "impact"
+        }
+      ]
+    },
+    {
+      "id": "self",
+      "root": ".",
+      "n": 8,
+      "mean_recall": 0.9375,
+      "hallucination_rate": 0.0,
+      "files": 313,
+      "endpoints": 49,
+      "items": [
+        {
+          "recall": 1.0,
+          "missing": {},
+          "id": "self-brief-stack",
+          "kind": "brief"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/src/api/routes/webhooks.py",
+            "apps/web/src/app/page.tsx",
+            "apps/worker/src/worker/__init__.py",
+            "apps/worker/src/worker/app.py",
+            "apps/worker/src/worker/bot/review_task.py",
+            "apps/worker/src/worker/ingest/clone.py",
+            "apps/worker/src/worker/ingest/code_pipeline.py",
+            "apps/worker/src/worker/ingest/graph.py",
+            "apps/worker/src/worker/ingest/incremental.py",
+            "apps/worker/src/worker/ingest/pipeline.py",
+            "apps/worker/src/worker/ingest/understanding.py",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/chat/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/messages/[id]/edit-linear/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/threads/[id]/messages/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/threads/[id]/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/threads/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/api/uploads/route.ts",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/chat/[threadId]/page.tsx",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/log-in-or-create-account/page.tsx",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/page.tsx",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/sign-in/[[...sign-in]]/page.tsx",
+            "data/clones/3631753c-a2ac-40d7-95c5-39a1b155f747/1060917879/src/app/sign-up/[[...sign-up]]/page.tsx",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/[page]/page.tsx",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/api/revalidate/route.ts",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/page.tsx",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/product/[handle]/page.tsx",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/search/[collection]/page.tsx",
+            "data/clones/89c50974-8419-43ae-b052-2889e4417be6/1327060927/app/search/page.tsx",
+            "packages/parsing/src/repo_parsing/understanding.py",
+            "tests/fixtures/understanding/apps/api/main.py",
+            "tests/fixtures/understanding/apps/web/src/app/page.tsx",
+            "tests/fixtures/understanding/apps/worker/worker.py",
+            "tests/test_phase1_git.py",
+            "tests/test_phase1_models.py",
+            "tests/test_phase2_incremental.py",
+            "tests/test_phase2_parsing.py",
+            "tests/test_understanding_models.py"
+          ],
+          "id": "self-entry-web",
+          "kind": "entry"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_found": 46,
+          "id": "self-api-core",
+          "kind": "api"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "self-arch-web",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "self-arch-routes",
+          "kind": "architecture"
+        },
+        {
+          "recall": 0.5,
+          "missing": [
+            "layer=data expected=lib"
+          ],
+          "invented_nodes": [],
+          "id": "self-arch-core",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "hallucinated": false,
+          "id": "self-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_callers_found": 15,
+          "id": "self-impact-extract-symbols",
+          "kind": "impact"
+        }
+      ]
+    }
+  ]
+}

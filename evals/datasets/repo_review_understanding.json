@@ -1,0 +1,134 @@
+{
+  "name": "repo_review_understanding",
+  "description": "V1 U9 — deterministic understanding-layer gate (no LLM, no Postgres). Brief / entry / API / architecture / flow / impact / hallucination. Fixture suite must score 1.0; self-repo items are conservative labels on this codebase.",
+  "suites": [
+    {
+      "id": "fixture",
+      "root": "tests/fixtures/understanding",
+      "items": [
+        {
+          "id": "fix-brief-stack",
+          "kind": "brief",
+          "expected_languages": ["python", "typescript"],
+          "expected_frameworks": ["FastAPI", "Celery", "Next.js", "React"],
+          "expected_externals": ["Postgres", "Stripe", "GitHub"]
+        },
+        {
+          "id": "fix-entry",
+          "kind": "entry",
+          "expected_files": [
+            "apps/api/main.py",
+            "apps/web/src/app/page.tsx",
+            "apps/worker/worker.py"
+          ]
+        },
+        {
+          "id": "fix-api",
+          "kind": "api",
+          "expected_endpoints": [
+            {"method": "GET", "path": "/login"},
+            {"method": "POST", "path": "/orders"}
+          ]
+        },
+        {
+          "id": "fix-arch-web",
+          "kind": "architecture",
+          "path": "apps/web/src/app/page.tsx",
+          "expected_layer": "web",
+          "expected_domain": "Web"
+        },
+        {
+          "id": "fix-arch-api",
+          "kind": "architecture",
+          "path": "apps/api/orders.py",
+          "expected_layer": "api",
+          "expected_domain": "API"
+        },
+        {
+          "id": "fix-arch-worker",
+          "kind": "architecture",
+          "path": "apps/worker/worker.py",
+          "expected_layer": "worker",
+          "expected_domain": "Worker"
+        },
+        {
+          "id": "fix-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "id": "fix-flow-create",
+          "kind": "flow",
+          "seed": "create",
+          "expected_callees": ["apps/api/payments.py"]
+        },
+        {
+          "id": "fix-impact-charge",
+          "kind": "impact",
+          "target": "charge",
+          "expected_callers": ["apps/api/orders.py"]
+        }
+      ]
+    },
+    {
+      "id": "self",
+      "root": ".",
+      "items": [
+        {
+          "id": "self-brief-stack",
+          "kind": "brief",
+          "expected_languages": ["python", "typescript"],
+          "expected_frameworks": ["FastAPI"]
+        },
+        {
+          "id": "self-entry-web",
+          "kind": "entry",
+          "expected_files": ["apps/web/src/app/page.tsx"]
+        },
+        {
+          "id": "self-api-core",
+          "kind": "api",
+          "expected_endpoints": [
+            {"method": "GET", "path": "/health"},
+            {"method": "GET", "path": "/me"},
+            {"method": "GET", "path": "/login"},
+            {"method": "POST", "path": "/select"}
+          ]
+        },
+        {
+          "id": "self-arch-web",
+          "kind": "architecture",
+          "path": "apps/web/src/app/page.tsx",
+          "expected_layer": "web",
+          "expected_domain": "Web"
+        },
+        {
+          "id": "self-arch-routes",
+          "kind": "architecture",
+          "path": "apps/api/src/api/routes/chat.py",
+          "expected_layer": "api",
+          "expected_domain": "API routes"
+        },
+        {
+          "id": "self-arch-core",
+          "kind": "architecture",
+          "path": "packages/core/src/repo_core/models.py",
+          "expected_layer": "lib",
+          "expected_domain": "Core"
+        },
+        {
+          "id": "self-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "id": "self-impact-extract-symbols",
+          "kind": "impact",
+          "target": "extract_symbols",
+          "expected_callers": [
+            "apps/worker/src/worker/ingest/parse.py",
+            "evals/run_retrieval_eval.py"
+          ]
+        }
+      ]
+    }
+  ]
+}

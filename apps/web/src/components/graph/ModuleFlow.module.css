@@ -8,6 +8,10 @@
     var(--bg-2);
 }
 
+.canvas[data-compact="true"] {
+  height: 320px;
+}
+
 /* Node */
 .node {
   display: flex;

@@ -105,10 +105,10 @@ export function GraphPanel({ repo }: { repo: Repository }) {
     <section className={styles.panel}>
       <header className={styles.head}>
         <div>
-          <h2 className={styles.title}>Structure &amp; call graph</h2>
+          <h2 className={styles.title}>Folder map (advanced)</h2>
           <p className={styles.hint}>
-            Module dependencies, blast radius, and call flows from the indexed call graph.
-            Approximate links are dashed and labeled with confidence.
+            Raw directory-level import/call graph plus symbol tools. Prefer Overview and
+            Architecture for a mental model — this is the debug view of the index.
           </p>
         </div>
         <div className={styles.headActions}>

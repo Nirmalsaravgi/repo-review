@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { Repository } from "@/lib/api";
 import { Markdown } from "./chat/Markdown";
@@ -18,7 +18,21 @@ const SUGGESTIONS = [
   "How does the request flow work end to end?",
 ];
 
-export function ChatPanel({ repo }: { repo: Repository }) {
+export function ChatPanel({
+  repo,
+  initialQuestion,
+  onQuestionConsumed,
+  contextNote,
+  onContextConsumed,
+  suggestions,
+}: {
+  repo: Repository;
+  initialQuestion?: string | null;
+  onQuestionConsumed?: () => void;
+  contextNote?: string | null;
+  onContextConsumed?: () => void;
+  suggestions?: string[];
+}) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -45,6 +59,17 @@ export function ChatPanel({ repo }: { repo: Repository }) {
     queueMicrotask(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }));
   }
 
+  const starterQuestions = suggestions?.length ? suggestions : SUGGESTIONS;
+
+  useEffect(() => {
+    if (!initialQuestion) return;
+    const q = initialQuestion;
+    onQuestionConsumed?.();
+    void ask(q);
+    // ask is stable enough for a one-shot handoff from Overview.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuestion]);
+
   function onEvent(event: string, data: Record<string, unknown>) {
     if (event === "meta") {
       conversationId.current = (data.conversation_id as string) || conversationId.current;
@@ -68,17 +93,19 @@ export function ChatPanel({ repo }: { repo: Repository }) {
   }
 
   async function ask(text?: string) {
-    const question = (text ?? input).trim();
-    if (!question || busy) return;
+    const raw = (text ?? input).trim();
+    if (!raw || busy) return;
+    const question = contextNote ? `Regarding: ${contextNote}\n\n${raw}` : raw;
     setInput("");
     setError(null);
     setTurns((prev) => [
       ...prev,
-      { role: "user", content: question },
+      { role: "user", content: raw },
       { role: "assistant", content: "" },
     ]);
     setBusy(true);
     setStatus("Thinking…");
+    onContextConsumed?.();
     try {
       const res = await fetch(`${API_BASE}/repos/${repo.id}/chat`, {
         method: "POST",
@@ -102,6 +129,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
         <div>
           <h2 className={styles.title}>Ask about this repository</h2>
           <span className={styles.hint}>Grounded in the cloned code, with line-level citations.</span>
+          {contextNote ? <p className={styles.hint}>Asking about: {contextNote}</p> : null}
         </div>
         <button
           type="button"
@@ -119,7 +147,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
             <div className={styles.welcomeIcon}>✦</div>
             <p className={styles.welcomeTitle}>Ask anything about {repo.full_name}</p>
             <div className={styles.suggestions}>
-              {SUGGESTIONS.map((s) => (
+              {starterQuestions.map((s) => (
                 <button key={s} type="button" className={styles.chip} onClick={() => void ask(s)}>
                   {s}
                 </button>

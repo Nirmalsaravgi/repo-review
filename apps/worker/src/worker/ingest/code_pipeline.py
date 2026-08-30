@@ -77,6 +77,9 @@ async def index_code(org_id: str, repo_id: str) -> dict[str, Any]:
                 run.status = "success"
                 run.stats = stats
                 run.finished_at = datetime.now(UTC)
+        from worker.ingest.understanding import enqueue_index_understanding
+
+        enqueue_index_understanding(org_id, repo_id)
         logger.info("index_code complete for %s: %s", full_name, stats)
         return {"ok": True, "stats": stats}
     except Exception as exc:

@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from repo_core.config import get_settings
 from repo_core.db import SessionLocal
-from repo_core.models import ChatMessage, Conversation, IndexStatus, Repository
+from repo_core.models import Brief, ChatMessage, Conversation, Flow, IndexStatus, Repository
 from repo_core.schemas import (
     ChatRequest,
     ConversationDetailOut,
@@ -93,6 +93,9 @@ async def chat(
     # Prefer indexed signatures for orientation; live parse / file tree if empty.
     map_symbols = await load_map_symbols(db, repo_uuid)
     repo_map_text = build_repo_map(root, symbols=map_symbols or None)
+    brief_header = await _brief_header(db, repo)
+    if brief_header:
+        repo_map_text = f"{brief_header}\n\n{repo_map_text}"
 
     async def event_stream() -> AsyncIterator[dict[str, Any]]:
         yield {"event": "meta", "data": json.dumps({"conversation_id": str(conversation_id)})}
@@ -255,6 +258,44 @@ async def _persist_answer(org_id: UUID, conversation_id: UUID, event: AnswerComp
         if conversation is not None:
             conversation.updated_at = datetime.now(UTC)
         await db.commit()
+
+
+async def _brief_header(db: AsyncSession, repo: Repository) -> str:
+    """Compact cached brief for the agent system header. Empty if none yet."""
+    row = (
+        await db.execute(
+            select(Brief).where(Brief.repo_id == repo.id).order_by(Brief.created_at.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return ""
+    facts = row.facts or {}
+    narrative = row.narrative or {}
+    lines = ["# Repository brief"]
+    if narrative.get("summary"):
+        lines.append(str(narrative["summary"]))
+    domains = narrative.get("domains") or []
+    if domains:
+        names = [d.get("name") for d in domains if isinstance(d, dict) and d.get("name")]
+        if names:
+            lines.append("Domains: " + ", ".join(names[:8]))
+    frames = facts.get("frameworks") or []
+    if frames:
+        lines.append("Stack: " + ", ".join(str(f) for f in frames[:8]))
+    endpoints = facts.get("endpoints") or []
+    if endpoints:
+        lines.append(f"HTTP endpoints indexed: {len(endpoints)}")
+        for ep in endpoints[:12]:
+            if isinstance(ep, dict) and ep.get("path"):
+                lines.append(f"  {ep.get('method', '?')} {ep['path']}")
+    flow_rows = (
+        await db.execute(select(Flow.title, Flow.kind).where(Flow.repo_id == repo.id).limit(20))
+    ).all()
+    if flow_rows:
+        lines.append("Detected flows:")
+        for title, kind in flow_rows:
+            lines.append(f"  - [{kind}] {title}")
+    return "\n".join(lines)
 
 
 def _to_sse(event: Any) -> dict[str, Any]:

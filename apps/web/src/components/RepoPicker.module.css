@@ -282,8 +282,15 @@
 }
 
 /* Segmented control */
+.moreStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .segmented {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 4px;
   border-radius: 999px;

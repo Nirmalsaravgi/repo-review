@@ -3,19 +3,27 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Repository } from "@/lib/api";
+import { isFlowQuestion, queryFlow } from "@/lib/understanding";
+import { ArchitecturePanel } from "./ArchitecturePanel";
+import { ApisPanel } from "./ApisPanel";
 import { ChatPanel } from "./ChatPanel";
+import { FlowsPanel } from "./FlowsPanel";
 import { GraphPanel } from "./GraphPanel";
 import { HistoryPanel } from "./HistoryPanel";
+import { OverviewPanel } from "./OverviewPanel";
 import styles from "./RepoPicker.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
-type View = "graph" | "chat" | "insights";
+type View = "overview" | "architecture" | "flows" | "apis" | "chat" | "more";
 
 const VIEWS: { id: View; label: string; icon: string }[] = [
-  { id: "graph", label: "Structure", icon: "◈" },
-  { id: "chat", label: "Chat", icon: "✦" },
-  { id: "insights", label: "Git intelligence", icon: "◷" },
+  { id: "overview", label: "Overview", icon: "◎" },
+  { id: "architecture", label: "Architecture", icon: "◈" },
+  { id: "flows", label: "Flows", icon: "↝" },
+  { id: "apis", label: "APIs", icon: "⎘" },
+  { id: "chat", label: "Ask", icon: "✦" },
+  { id: "more", label: "More", icon: "⋯" },
 ];
 
 export function RepoPicker({
@@ -29,7 +37,13 @@ export function RepoPicker({
   const [filter, setFilter] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<View>("graph");
+  const [view, setView] = useState<View>("overview");
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [chatContext, setChatContext] = useState<string | null>(null);
+  const [focusComponent, setFocusComponent] = useState<string | null>(null);
+  const [focusFlowId, setFocusFlowId] = useState<string | null>(null);
+  const [focusFlowTitle, setFocusFlowTitle] = useState<string | null>(null);
+  const [flowQuerying, setFlowQuerying] = useState(false);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -82,6 +96,34 @@ export function RepoPicker({
     }
   }
 
+  async function handleAsk(question: string, opts?: { context?: string }) {
+    if (opts?.context) setChatContext(opts.context);
+    const repo = repos.find((r) => r.selected && r.index_status === "ready");
+    if (repo && isFlowQuestion(question)) {
+      setFlowQuerying(true);
+      try {
+        const flow = await queryFlow(repo.id, question);
+        if (flow.matched && flow.id) {
+          setFocusFlowId(flow.id);
+          setFocusFlowTitle(null);
+          setView("flows");
+          return;
+        }
+        if (flow.retrieved_files?.length) {
+          setChatContext(
+            `No seeded flow matched. Retrieved files: ${flow.retrieved_files.slice(0, 6).join(", ")}`,
+          );
+        }
+      } catch {
+        /* fall through to chat */
+      } finally {
+        setFlowQuerying(false);
+      }
+    }
+    setPendingQuestion(question);
+    setView("chat");
+  }
+
   async function pollStatus(repoId: string) {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 1500));
@@ -99,7 +141,7 @@ export function RepoPicker({
         <div>
           <h1 className={styles.title}>Repositories</h1>
           <p className={styles.copy}>
-            Select a repo to clone it for chat. History and code/structure indexing run in the
+            Select a repo to clone it. We build a brief, architecture map, and chat index in the
             background.
           </p>
         </div>
@@ -183,6 +225,7 @@ export function RepoPicker({
               <span className={styles.repoHeadingName}>{activeRepo.full_name}</span>
               <span className={styles.branch}>{activeRepo.default_branch}</span>
             </div>
+            {flowQuerying ? <span className={styles.branch}>Tracing a flow…</span> : null}
             <div className={styles.segmented}>
               {VIEWS.map((v) => (
                 <button
@@ -190,7 +233,12 @@ export function RepoPicker({
                   type="button"
                   className={styles.segment}
                   data-active={view === v.id}
-                  onClick={() => setView(v.id)}
+                  onClick={() => {
+                    setFocusComponent(null);
+                    setFocusFlowId(null);
+                    setFocusFlowTitle(null);
+                    setView(v.id);
+                  }}
                 >
                   {view === v.id ? (
                     <motion.span layoutId="segbg" className={styles.segbg} transition={{ type: "spring", stiffness: 500, damping: 40 }} />
@@ -210,9 +258,57 @@ export function RepoPicker({
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
             >
-              {view === "graph" ? <GraphPanel repo={activeRepo} /> : null}
-              {view === "chat" ? <ChatPanel repo={activeRepo} /> : null}
-              {view === "insights" ? <HistoryPanel repo={activeRepo} /> : null}
+              {view === "overview" ? (
+                <OverviewPanel
+                  repo={activeRepo}
+                  onAsk={(q) => void handleAsk(q)}
+                  onOpenMode={(mode, opts) => {
+                    setFocusComponent(opts?.component ?? null);
+                    setView(mode);
+                  }}
+                />
+              ) : null}
+              {view === "architecture" ? (
+                <ArchitecturePanel
+                  repo={activeRepo}
+                  initialComponent={focusComponent}
+                  onAsk={(q, ctx) => void handleAsk(q, { context: ctx })}
+                />
+              ) : null}
+              {view === "flows" ? (
+                <FlowsPanel
+                  repo={activeRepo}
+                  initialFlowId={focusFlowId}
+                  initialTitle={focusFlowTitle}
+                  onAsk={(q, ctx) => void handleAsk(q, { context: ctx })}
+                />
+              ) : null}
+              {view === "apis" ? (
+                <ApisPanel
+                  repo={activeRepo}
+                  onOpenFlow={(title) => {
+                    setFocusFlowTitle(title);
+                    setFocusFlowId(null);
+                    setView("flows");
+                  }}
+                  onAsk={(q) => void handleAsk(q)}
+                />
+              ) : null}
+              {view === "chat" ? (
+                <ChatPanel
+                  repo={activeRepo}
+                  initialQuestion={pendingQuestion}
+                  contextNote={chatContext}
+                  onQuestionConsumed={() => setPendingQuestion(null)}
+                  onContextConsumed={() => setChatContext(null)}
+                />
+              ) : null}
+              {view === "more" ? (
+                <div className={styles.moreStack}>
+                  <HistoryPanel repo={activeRepo} />
+                  <GraphPanel repo={activeRepo} />
+                </div>
+              ) : null}
             </motion.div>
           </AnimatePresence>
         </div>

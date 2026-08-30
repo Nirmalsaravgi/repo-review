@@ -56,7 +56,15 @@ function ModuleNode({ data }: NodeProps<Node<ModuleData>>) {
 
 const nodeTypes = { module: ModuleNode };
 
-export function ModuleFlow({ graph }: { graph: ModuleGraph }) {
+export function ModuleFlow({
+  graph,
+  compact,
+  onSelect,
+}: {
+  graph: ModuleGraph;
+  compact?: boolean;
+  onSelect?: (id: string | null) => void;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
 
   // Reset selection when the underlying graph changes.
@@ -110,18 +118,28 @@ export function ModuleFlow({ graph }: { graph: ModuleGraph }) {
     [graph.edges, neighbors],
   );
 
-  const onNodeClick = useCallback((_: unknown, node: Node) => {
-    setSelected((cur) => (cur === node.id ? null : node.id));
-  }, []);
+  const onNodeClick = useCallback(
+    (_: unknown, node: Node) => {
+      setSelected((cur) => {
+        const next = cur === node.id ? null : node.id;
+        onSelect?.(next);
+        return next;
+      });
+    },
+    [onSelect],
+  );
 
   return (
-    <div className={styles.canvas}>
+    <div className={styles.canvas} data-compact={compact ? "true" : undefined}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
-        onPaneClick={() => setSelected(null)}
+        onPaneClick={() => {
+          setSelected(null);
+          onSelect?.(null);
+        }}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.15}

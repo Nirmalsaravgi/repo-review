@@ -1,0 +1,177 @@
+{
+  "kind": "understanding_eval",
+  "note": "Layer A facts + pure call-graph (no LLM/Postgres).",
+  "mean_recall": 1.0,
+  "hallucination_rate": 0.0,
+  "gate": "PASS",
+  "n": 17,
+  "suites": [
+    {
+      "id": "fixture",
+      "root": "tests/fixtures/understanding",
+      "n": 9,
+      "mean_recall": 1.0,
+      "hallucination_rate": 0.0,
+      "files": 5,
+      "endpoints": 2,
+      "items": [
+        {
+          "recall": 1.0,
+          "missing": {},
+          "id": "fix-brief-stack",
+          "kind": "brief"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/main.py",
+            "apps/web/src/app/page.tsx",
+            "apps/worker/worker.py"
+          ],
+          "id": "fix-entry",
+          "kind": "entry"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_found": 2,
+          "id": "fix-api",
+          "kind": "api"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-web",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-api",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "fix-arch-worker",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "hallucinated": false,
+          "id": "fix-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/payments.py"
+          ],
+          "id": "fix-flow-create",
+          "kind": "flow"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_callers_found": 2,
+          "id": "fix-impact-charge",
+          "kind": "impact"
+        }
+      ]
+    },
+    {
+      "id": "self",
+      "root": ".",
+      "n": 8,
+      "mean_recall": 1.0,
+      "hallucination_rate": 0.0,
+      "files": 179,
+      "endpoints": 39,
+      "items": [
+        {
+          "recall": 1.0,
+          "missing": {},
+          "id": "self-brief-stack",
+          "kind": "brief"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "found": [
+            "apps/api/src/api/routes/webhooks.py",
+            "apps/web/src/app/page.tsx",
+            "apps/worker/src/worker/__init__.py",
+            "apps/worker/src/worker/app.py",
+            "apps/worker/src/worker/bot/review_task.py",
+            "apps/worker/src/worker/ingest/clone.py",
+            "apps/worker/src/worker/ingest/code_pipeline.py",
+            "apps/worker/src/worker/ingest/graph.py",
+            "apps/worker/src/worker/ingest/incremental.py",
+            "apps/worker/src/worker/ingest/pipeline.py",
+            "apps/worker/src/worker/ingest/understanding.py",
+            "packages/parsing/src/repo_parsing/understanding.py",
+            "tests/fixtures/understanding/apps/api/main.py",
+            "tests/fixtures/understanding/apps/web/src/app/page.tsx",
+            "tests/fixtures/understanding/apps/worker/worker.py",
+            "tests/test_phase1_git.py",
+            "tests/test_phase1_models.py",
+            "tests/test_phase2_incremental.py",
+            "tests/test_phase2_parsing.py",
+            "tests/test_understanding_extract.py",
+            "tests/test_understanding_models.py"
+          ],
+          "id": "self-entry-web",
+          "kind": "entry"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_found": 36,
+          "id": "self-api-core",
+          "kind": "api"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "self-arch-web",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "self-arch-routes",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "invented_nodes": [],
+          "id": "self-arch-core",
+          "kind": "architecture"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "hallucinated": false,
+          "id": "self-hallucination",
+          "kind": "hallucination"
+        },
+        {
+          "recall": 1.0,
+          "missing": [],
+          "n_callers_found": 15,
+          "id": "self-impact-extract-symbols",
+          "kind": "impact"
+        }
+      ]
+    }
+  ]
+}

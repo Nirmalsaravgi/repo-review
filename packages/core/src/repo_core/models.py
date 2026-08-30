@@ -488,6 +488,126 @@ class PRReview(Base):
     )
 
 
+# --------------------------------------------------------------------------- #
+# Understanding layer — brief, architecture, APIs, flows
+# --------------------------------------------------------------------------- #
+class Endpoint(Base):
+    __tablename__ = "endpoints"
+    __table_args__ = (Index("ix_endpoints_repo", "repo_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    path: Mapped[str] = mapped_column(String(512), nullable=False)
+    handler_symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="SET NULL"), nullable=True
+    )
+    file_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=True
+    )
+    handler_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auth_hint: Mapped[str] = mapped_column(String(32), nullable=False, default="unknown")
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class External(Base):
+    __tablename__ = "externals"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "name", name="uq_externals_repo_name"),
+        Index("ix_externals_repo", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    evidence: Mapped[list[str] | dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+
+
+class Component(Base):
+    __tablename__ = "components"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "layer", "name", name="uq_components_repo_layer_name"),
+        Index("ix_components_repo", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    layer: Mapped[str] = mapped_column(String(32), nullable=False)
+    domain: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    folder_globs: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    file_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    symbol_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Flow(Base):
+    __tablename__ = "flows"
+    __table_args__ = (Index("ix_flows_repo", "repo_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    seed_symbol_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("symbols.id", ondelete="SET NULL"), nullable=True
+    )
+    seed_endpoint_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("endpoints.id", ondelete="SET NULL"), nullable=True
+    )
+    steps: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    mermaid: Mapped[str | None] = mapped_column(Text, nullable=True)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class Brief(Base):
+    __tablename__ = "briefs"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "indexed_sha", name="uq_briefs_repo_sha"),
+        Index("ix_briefs_repo", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    facts: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    narrative: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 TENANT_TABLES = (
     "users",
     "installations",
@@ -505,4 +625,9 @@ TENANT_TABLES = (
     "chunks",
     "edges",
     "pr_reviews",
+    "endpoints",
+    "externals",
+    "components",
+    "flows",
+    "briefs",
 )

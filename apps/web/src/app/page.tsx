@@ -40,7 +40,7 @@ export default async function HomePage() {
           <div className={styles.logo}>◇</div>
           <div>
             <p className={styles.brand}>Repo Understanding</p>
-            <p className={styles.tagline}>Code chat · structure maps · git intelligence</p>
+            <p className={styles.tagline}>Connect a repo · build a mental model · explore it</p>
           </div>
         </div>
         <div className={styles.headerRight}>
