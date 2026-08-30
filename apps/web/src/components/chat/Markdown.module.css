@@ -1,0 +1,150 @@
+.md {
+  font-size: 0.92rem;
+  line-height: 1.62;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p {
+  margin: 0.6rem 0;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: 1.1rem 0 0.5rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.md h1 {
+  font-size: 1.25rem;
+}
+.md h2 {
+  font-size: 1.1rem;
+}
+.md h3 {
+  font-size: 1rem;
+}
+
+.md ul,
+.md ol {
+  margin: 0.5rem 0;
+  padding-left: 1.35rem;
+}
+
+.md li {
+  margin: 0.25rem 0;
+}
+
+.md li::marker {
+  color: var(--accent-2);
+}
+
+.md blockquote {
+  margin: 0.7rem 0;
+  padding: 0.2rem 0 0.2rem 0.9rem;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+}
+
+.md hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1rem 0;
+}
+
+.md strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.inlineCode {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  padding: 0.12em 0.4em;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--inline-code);
+}
+
+/* Code blocks */
+.codeBlock {
+  margin: 0.7rem 0;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+}
+
+.codeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  background: var(--overlay);
+  border-bottom: 1px solid var(--line);
+}
+
+.lang {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.copyBtn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.copyBtn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin: 0.7rem 0;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+
+.tableWrap table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.84rem;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.tableWrap th {
+  background: var(--overlay);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tableWrap tr:last-child td {
+  border-bottom: none;
+}

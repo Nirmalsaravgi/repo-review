@@ -7,6 +7,7 @@ import {
   fetchContributions,
   fetchOwnership,
   triggerIndexHistory,
+  triggerReembed,
   type BusFactorEntry,
   type ContributionEntry,
   type OwnershipEntry,
@@ -24,6 +25,7 @@ export function HistoryPanel({ repo }: { repo: Repository }) {
   const [error, setError] = useState<string | null>(null);
   const [indexing, setIndexing] = useState(false);
   const [indexMsg, setIndexMsg] = useState<string | null>(null);
+  const [reembedding, setReembedding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +85,28 @@ export function HistoryPanel({ repo }: { repo: Repository }) {
     }
   }
 
+  async function onReembed() {
+    if (
+      !window.confirm(
+        "Re-embed all code chunks for this repo? This re-runs the embedding provider " +
+          "over every file (used after switching to real embeddings) and may incur API cost.",
+      )
+    ) {
+      return;
+    }
+    setReembedding(true);
+    setIndexMsg(null);
+    setError(null);
+    try {
+      const out = await triggerReembed(repo.id);
+      setIndexMsg(`${out.message}${out.task_id ? ` (${out.task_id.slice(0, 8)}…)` : ""}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Re-embed failed");
+    } finally {
+      setReembedding(false);
+    }
+  }
+
   return (
     <section className={styles.panel}>
       <header className={styles.head}>
@@ -96,6 +120,15 @@ export function HistoryPanel({ repo }: { repo: Repository }) {
         <div className={styles.headActions}>
           <button type="button" className={styles.ghost} onClick={() => void load()} disabled={loading}>
             Refresh
+          </button>
+          <button
+            type="button"
+            className={styles.ghost}
+            onClick={() => void onReembed()}
+            disabled={reembedding}
+            title="Re-run embeddings over all code chunks (e.g. after switching to real embeddings)"
+          >
+            {reembedding ? "Enqueueing…" : "Re-embed"}
           </button>
           <button type="button" className={styles.primary} onClick={() => void onIndex()} disabled={indexing}>
             {indexing ? "Enqueueing…" : "Index history"}

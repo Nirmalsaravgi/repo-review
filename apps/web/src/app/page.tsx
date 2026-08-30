@@ -1,6 +1,7 @@
 import { apiFetch, type Repository, type Session } from "@/lib/api";
 import { RepoPicker } from "@/components/RepoPicker";
 import { LoginPanel } from "@/components/LoginPanel";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -35,17 +36,32 @@ export default async function HomePage() {
   return (
     <main className={styles.shell}>
       <header className={styles.header}>
-        <div>
-          <p className={styles.brand}>Repo Understanding</p>
-          <p className={styles.tagline}>Code questions, structure maps, git intelligence</p>
-        </div>
-        {session.authenticated && session.user ? (
-          <div className={styles.user}>
-            <span className={styles.muted}>Signed in as</span>
-            <strong>{session.user.login}</strong>
-            {session.org ? <span className={styles.muted}>· {session.org.name}</span> : null}
+        <div className={styles.brandRow}>
+          <div className={styles.logo}>◇</div>
+          <div>
+            <p className={styles.brand}>Repo Understanding</p>
+            <p className={styles.tagline}>Code chat · structure maps · git intelligence</p>
           </div>
-        ) : null}
+        </div>
+        <div className={styles.headerRight}>
+          <ThemeToggle />
+          {session.authenticated && session.user ? (
+            <div className={styles.user}>
+              <div className={styles.userText}>
+                <strong>{session.user.login}</strong>
+                {session.org ? <span className={styles.muted}>{session.org.name}</span> : null}
+              </div>
+              {session.user.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={styles.avatar} src={session.user.avatar_url} alt={session.user.login} />
+              ) : (
+                <div className={styles.avatarFallback}>
+                  {session.user.login.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {!session.authenticated ? (

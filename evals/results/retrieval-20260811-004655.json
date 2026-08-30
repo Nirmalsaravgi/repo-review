@@ -1,0 +1,459 @@
+{
+  "kind": "retrieval_eval",
+  "note": "Diagnostic channel scores only. Phase 2 product gate is live agent recall@10 >= 0.97 via evals/run_eval.py.",
+  "baseline_recall_at_10": 0.97,
+  "mean_lexical_recall_at_10": 0.775,
+  "mean_hybrid_recall_at_10": 0.9,
+  "gate_metric": "max(lexical, hybrid)",
+  "gate_score": 0.9,
+  "vs_agent_baseline": "FAIL",
+  "n": 20,
+  "items": [
+    {
+      "id": "locate-fs-tools",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/filesystem.py",
+        "api/retrieval/lexical.py",
+        "api/agent/citations.py",
+        "api/agent/loop.py",
+        "api/agent/prompt.py"
+      ],
+      "hybrid_top": [
+        "api/agent/prompt.py",
+        "api/agent/citations.py",
+        "api/agent/tools/registry.py",
+        "api/agent/tools/filesystem.py",
+        "api/retrieval/lexical.py"
+      ],
+      "expected": [
+        "api/agent/tools/filesystem.py"
+      ]
+    },
+    {
+      "id": "locate-tool-registry",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/registry.py",
+        "api/agent/loop.py",
+        "api/bot/checks.py",
+        "api/agent/tools/__init__.py"
+      ],
+      "hybrid_top": [
+        "api/bot/checks.py",
+        "api/agent/tools/registry.py",
+        "api/agent/loop.py",
+        "api/agent/tools/base.py",
+        "api/agent/prompt.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "locate-path-safety",
+      "category": "locate",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/repo_map.py",
+        "api/agent/tools/git.py",
+        "api/graph/blast.py",
+        "api/agent/tools/context.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/git.py",
+        "api/agent/repo_map.py",
+        "api/graph/blast.py",
+        "api/agent/tools/context.py",
+        "api/agent/tools/base.py"
+      ],
+      "expected": [
+        "api/agent/tools/base.py"
+      ]
+    },
+    {
+      "id": "locate-chat-endpoint",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/chat.py",
+        "api/agent/events.py",
+        "api/agent/loop.py",
+        "api/agent/repo_map.py",
+        "api/agent/tools/context.py"
+      ],
+      "hybrid_top": [
+        "api/routes/chat.py",
+        "api/agent/tools/filesystem.py",
+        "api/bot/review.py",
+        "api/bot/config.py",
+        "api/agent/tools/registry.py"
+      ],
+      "expected": [
+        "api/routes/chat.py"
+      ]
+    },
+    {
+      "id": "locate-citations",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/citations.py",
+        "api/agent/events.py",
+        "api/agent/loop.py",
+        "api/agent/tools/base.py",
+        "api/routes/chat.py"
+      ],
+      "hybrid_top": [
+        "api/agent/citations.py",
+        "api/agent/tools/base.py",
+        "api/agent/events.py",
+        "api/agent/loop.py",
+        "api/routes/chat.py"
+      ],
+      "expected": [
+        "api/agent/citations.py"
+      ]
+    },
+    {
+      "id": "locate-repo-map",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/repo_map.py",
+        "api/agent/loop.py",
+        "api/agent/prompt.py",
+        "api/bot/checks.py",
+        "api/bot/config.py"
+      ],
+      "hybrid_top": [
+        "api/agent/prompt.py",
+        "api/agent/loop.py",
+        "api/bot/checks.py",
+        "api/bot/config.py",
+        "api/agent/repo_map.py"
+      ],
+      "expected": [
+        "api/agent/prompt.py"
+      ]
+    },
+    {
+      "id": "locate-cache",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/cache.py",
+        "api/agent/loop.py",
+        "api/agent/tools/git.py",
+        "api/agent/__init__.py",
+        "api/agent/context.py"
+      ],
+      "hybrid_top": [
+        "api/agent/loop.py",
+        "api/agent/context.py",
+        "api/agent/__init__.py",
+        "api/agent/cache.py",
+        "api/routes/chat.py"
+      ],
+      "expected": [
+        "api/agent/cache.py"
+      ]
+    },
+    {
+      "id": "locate-webhook",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/repo_map.py",
+        "api/bot/diff.py",
+        "api/routes/webhooks.py",
+        "api/agent/prompt.py",
+        "api/bot/checks.py"
+      ],
+      "hybrid_top": [
+        "api/bot/checks.py",
+        "api/agent/prompt.py",
+        "api/agent/repo_map.py",
+        "api/routes/chat.py",
+        "api/retrieval/lexical.py"
+      ],
+      "expected": [
+        "api/routes/webhooks.py"
+      ]
+    },
+    {
+      "id": "locate-tenant-db",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/loop.py",
+        "api/agent/tools/context.py",
+        "api/deps.py",
+        "api/graph/modules.py",
+        "api/routes/repos.py"
+      ],
+      "hybrid_top": [
+        "api/agent/loop.py",
+        "api/routes/repos.py",
+        "api/graph/modules.py",
+        "api/agent/context.py",
+        "api/agent/tools/base.py"
+      ],
+      "expected": [
+        "api/deps.py"
+      ]
+    },
+    {
+      "id": "flow-loop-tools",
+      "category": "flow",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.5,
+      "lexical_top": [
+        "api/routes/auth.py"
+      ],
+      "hybrid_top": [
+        "api/routes/auth.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/base.py",
+        "api/agent/tools/registry.py",
+        "api/bot/config.py"
+      ],
+      "expected": [
+        "api/agent/loop.py",
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "flow-chat-agent",
+      "category": "flow",
+      "lexical_recall": 0.5,
+      "hybrid_recall": 0.5,
+      "lexical_top": [
+        "api/routes/chat.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/graph.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/prompt.py",
+        "api/agent/tools/registry.py",
+        "api/routes/chat.py",
+        "api/agent/tools/base.py",
+        "api/agent/tools/graph.py"
+      ],
+      "expected": [
+        "api/routes/chat.py",
+        "api/agent/loop.py"
+      ]
+    },
+    {
+      "id": "flow-compaction",
+      "category": "flow",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/context.py",
+        "api/agent/loop.py",
+        "api/agent/tools/context.py"
+      ],
+      "hybrid_top": [
+        "api/agent/context.py",
+        "api/agent/loop.py",
+        "api/agent/tools/base.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/context.py"
+      ],
+      "expected": [
+        "api/agent/loop.py",
+        "api/agent/context.py"
+      ]
+    },
+    {
+      "id": "exact-step-budget",
+      "category": "exact_string",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 0.0,
+      "lexical_top": [
+        "api/agent/events.py",
+        "api/routes/auth.py"
+      ],
+      "hybrid_top": [
+        "api/agent/events.py",
+        "api/routes/auth.py",
+        "api/agent/tools/base.py",
+        "api/agent/tools/registry.py",
+        "api/bot/config.py"
+      ],
+      "expected": [
+        "api/agent/loop.py"
+      ]
+    },
+    {
+      "id": "exact-citation-format",
+      "category": "exact_string",
+      "lexical_recall": 0.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/events.py",
+        "api/agent/citations.py",
+        "api/agent/repo_map.py",
+        "api/agent/__init__.py",
+        "api/agent/loop.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/base.py",
+        "api/agent/loop.py",
+        "api/agent/citations.py",
+        "api/agent/repo_map.py",
+        "api/routes/chat.py"
+      ],
+      "expected": [
+        "api/agent/prompt.py"
+      ]
+    },
+    {
+      "id": "exact-unknown-tool",
+      "category": "exact_string",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/base.py",
+        "api/routes/chat.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/tools/base.py",
+        "api/agent/tools/registry.py",
+        "api/routes/chat.py",
+        "api/agent/prompt.py",
+        "api/bot/config.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py"
+      ]
+    },
+    {
+      "id": "locate-search-tools",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/search.py",
+        "api/agent/loop.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/prompt.py",
+        "api/agent/tools/registry.py",
+        "api/agent/tools/search.py",
+        "api/agent/loop.py",
+        "api/bot/config.py"
+      ],
+      "expected": [
+        "api/agent/tools/search.py"
+      ]
+    },
+    {
+      "id": "locate-hybrid-retrieval",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/retrieval/hybrid.py",
+        "api/retrieval/rrf.py",
+        "api/agent/repo_map.py",
+        "api/retrieval/lexical.py",
+        "api/agent/tools/search.py"
+      ],
+      "hybrid_top": [
+        "api/retrieval/rrf.py",
+        "api/agent/repo_map.py",
+        "api/retrieval/hybrid.py",
+        "api/retrieval/lexical.py",
+        "api/agent/tools/search.py"
+      ],
+      "expected": [
+        "api/retrieval/hybrid.py",
+        "api/retrieval/rrf.py"
+      ]
+    },
+    {
+      "id": "locate-semantic-retriever",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/retrieval/semantic.py",
+        "api/agent/tools/search.py",
+        "api/retrieval/lexical.py",
+        "api/retrieval/__init__.py",
+        "api/retrieval/hybrid.py"
+      ],
+      "hybrid_top": [
+        "api/retrieval/lexical.py",
+        "api/agent/tools/search.py",
+        "api/retrieval/hybrid.py",
+        "api/retrieval/semantic.py",
+        "api/agent/prompt.py"
+      ],
+      "expected": [
+        "api/retrieval/semantic.py"
+      ]
+    },
+    {
+      "id": "locate-push-webhook",
+      "category": "locate",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/routes/webhooks.py",
+        "api/agent/events.py"
+      ],
+      "hybrid_top": [
+        "api/agent/events.py",
+        "api/routes/webhooks.py",
+        "api/agent/loop.py",
+        "api/agent/prompt.py",
+        "api/bot/config.py"
+      ],
+      "expected": [
+        "api/routes/webhooks.py"
+      ]
+    },
+    {
+      "id": "flow-search-registry",
+      "category": "flow",
+      "lexical_recall": 1.0,
+      "hybrid_recall": 1.0,
+      "lexical_top": [
+        "api/agent/tools/search.py",
+        "api/agent/loop.py",
+        "api/agent/prompt.py",
+        "api/agent/tools/registry.py"
+      ],
+      "hybrid_top": [
+        "api/agent/prompt.py",
+        "api/agent/tools/registry.py",
+        "api/agent/tools/search.py",
+        "api/agent/loop.py",
+        "api/bot/diff.py"
+      ],
+      "expected": [
+        "api/agent/tools/registry.py",
+        "api/agent/tools/search.py"
+      ]
+    }
+  ]
+}

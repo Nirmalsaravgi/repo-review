@@ -40,10 +40,15 @@ async def sync_and_embed_repo(
     repo_full_name: str,
     changed_file_ids: set[UUID] | None = None,
     embedder: EmbeddingProvider | None = None,
+    force: bool = False,
 ) -> dict[str, Any]:
     """Build AST chunks and embeddings. Skips files whose chunks are already current.
 
     A file is (re)embedded when it is in `changed_file_ids`, or it has zero chunks.
+    `force=True` re-embeds every embeddable file regardless of the content-SHA cache
+    — required when switching embedding providers (e.g. mock → voyage), since the
+    content SHA is over chunk text, not the embedding model, so a normal run would
+    keep the stale vectors.
     """
     embedder = embedder or get_embedding_provider()
     root = Path(clone_path)
@@ -75,7 +80,11 @@ async def sync_and_embed_repo(
             continue
 
         has_chunks = chunk_counts.get(rec.id, 0) > 0
-        must = (changed_file_ids is not None and rec.id in changed_file_ids) or not has_chunks
+        must = (
+            force
+            or (changed_file_ids is not None and rec.id in changed_file_ids)
+            or not has_chunks
+        )
         if not must:
             files_skipped += 1
             continue
@@ -117,7 +126,7 @@ async def sync_and_embed_repo(
         existing = await db.execute(select(Chunk.content_sha).where(Chunk.file_id == rec.id))
         existing_shas = set(existing.scalars().all())
         new_shas = {c.content_sha for c in built}
-        if existing_shas == new_shas and has_chunks:
+        if not force and existing_shas == new_shas and has_chunks:
             chunks_reused += len(built)
             files_skipped += 1
             continue

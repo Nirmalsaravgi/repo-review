@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
-from sqlalchemy import select
-
 from repo_core.clone import wipe_clone
 from repo_core.config import get_settings
 from repo_core.db import SessionLocal
 from repo_core.models import IndexStatus, Installation, Org, Repository
 from repo_core.security import verify_github_signature
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,7 +42,10 @@ async def github_webhook(
         background.add_task(_handle_installation_repos, payload)
     elif event == "push":
         background.add_task(_handle_push, payload)
-    # pull_request handled in Phase 4
+    elif event == "pull_request":
+        background.add_task(_handle_pull_request, payload)
+    elif event == "pull_request_review":
+        background.add_task(_handle_pull_request_review, payload)
 
     return {"status": "accepted"}
 
@@ -179,6 +180,68 @@ async def _handle_installation_repos(payload: dict[str, Any]) -> None:
         await db.commit()
 
 
+async def _handle_pull_request(payload: dict[str, Any]) -> None:
+    """Phase 4 — trigger a bot review for a fresh/updated PR (dry-run unless enabled)."""
+    from worker.bot.review_task import should_review_pr
+
+    pr = payload.get("pull_request") or {}
+    if not should_review_pr(payload.get("action"), pr):
+        return
+
+    number = pr.get("number")
+    head_sha = ((pr.get("head") or {}).get("sha")) or ""
+    if not number or not head_sha:
+        return
+    installation_id = (payload.get("installation") or {}).get("id")
+    github_repo_id = (payload.get("repository") or {}).get("id")
+    if not installation_id or not github_repo_id:
+        return
+
+    async with SessionLocal() as db:
+        repo = (
+            await db.execute(
+                select(Repository).where(Repository.github_repo_id == github_repo_id)
+            )
+        ).scalar_one_or_none()
+        if repo is None or not repo.selected:
+            return
+        if repo.index_status != IndexStatus.READY.value:
+            logger.info("PR %s: repo %s not READY, skipping review", number, repo.full_name)
+            return
+        org_id = str(repo.org_id)
+        repo_id = str(repo.id)
+
+    from worker.bot.review_task import enqueue_review
+
+    task_id = enqueue_review(org_id, repo_id, int(number), head_sha, int(installation_id))
+    logger.info("PR %s for repo %s — enqueued review task=%s", number, repo_id, task_id)
+
+
+async def _handle_pull_request_review(payload: dict[str, Any]) -> None:
+    """Capture dismissal of a bot review → dismissal-rate numerator."""
+    if payload.get("action") != "dismissed":
+        return
+    pr = payload.get("pull_request") or {}
+    number = pr.get("number")
+    github_repo_id = (payload.get("repository") or {}).get("id")
+    if not number or not github_repo_id:
+        return
+    async with SessionLocal() as db:
+        repo = (
+            await db.execute(
+                select(Repository).where(Repository.github_repo_id == github_repo_id)
+            )
+        ).scalar_one_or_none()
+        if repo is None:
+            return
+        org_id = str(repo.org_id)
+        repo_id = str(repo.id)
+
+    from worker.bot.review_task import mark_review_dismissed
+
+    await mark_review_dismissed(org_id, repo_id, int(number))
+
+
 async def _handle_push(payload: dict[str, Any]) -> None:
     """Phase 2 P6: fetch + incremental reparse/re-embed; keep chat available (READY)."""
     repo_payload = payload.get("repository") or {}
@@ -215,7 +278,7 @@ async def _handle_push(payload: dict[str, Any]) -> None:
 
         # Stay READY so chat keeps working; HEAD vs last_indexed_sha surfaces staleness
         # until the Celery job finishes and advances last_indexed_sha.
-        repo.updated_at = datetime.now(timezone.utc)
+        repo.updated_at = datetime.now(UTC)
         org_id = str(repo.org_id)
         repo_id = str(repo.id)
         await db.commit()

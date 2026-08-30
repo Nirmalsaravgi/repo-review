@@ -36,6 +36,7 @@ from api.agent import (
 )
 from api.agent.cache import RedisResponseCache
 from api.agent.repo_map import build_repo_map, load_map_symbols
+from api.agent.tracing import get_tracer
 from api.deps import require_session, tenant_db
 from api.redis_client import get_redis
 
@@ -111,6 +112,7 @@ async def chat(
             redis=get_redis(),
             repo_map_text=repo_map_text,
             cache=RedisResponseCache(get_redis()),
+            tracer=get_tracer(settings),
         )
         try:
             async for event in agent.run(question, history):

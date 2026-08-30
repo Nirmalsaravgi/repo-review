@@ -99,6 +99,49 @@ async def github_get(
         return resp.json()
 
 
+async def github_post(
+    path: str,
+    *,
+    token: str,
+    json: dict[str, Any] | None = None,
+) -> Any:
+    """POST to the GitHub REST API (write path — used by the PR review bot)."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(f"{GITHUB_API}{path}", headers=headers, json=json or {})
+        if resp.status_code >= 400:
+            raise GitHubAppError(f"GitHub POST {path} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+
+async def github_get_paginated(
+    path: str,
+    *,
+    token: str,
+    params: dict[str, Any] | None = None,
+    max_pages: int = 20,
+) -> list[Any]:
+    """GET a paginated list endpoint (per_page=100), returning the flattened list."""
+    out: list[Any] = []
+    page = 1
+    base_params = dict(params or {})
+    base_params.setdefault("per_page", 100)
+    while page <= max_pages:
+        base_params["page"] = page
+        batch = await github_get(path, token=token, params=base_params)
+        if not isinstance(batch, list) or not batch:
+            break
+        out.extend(batch)
+        if len(batch) < base_params["per_page"]:
+            break
+        page += 1
+    return out
+
+
 async def list_installation_repos(installation_id: int) -> list[dict[str, Any]]:
     token = await get_installation_token(installation_id)
     repos: list[dict[str, Any]] = []

@@ -163,3 +163,24 @@ async def trigger_index_graph(
             detail="Could not enqueue graph index (is Redis/Celery available?)",
         )
     return IndexGraphOut(message="Graph indexing enqueued", task_id=task_id)
+
+
+@router.post("/{repo_id}/reembed", response_model=IndexCodeOut)
+async def trigger_reembed(
+    repo_id: str,
+    session: Annotated[SessionData, Depends(require_session)],
+    db: Annotated[AsyncSession, Depends(tenant_db)],
+) -> IndexCodeOut:
+    """Force a full re-embed (e.g. after switching mock → voyage embeddings)."""
+    repo = await _load_repo(db, session, repo_id)
+    if not repo.clone_path:
+        raise HTTPException(status_code=409, detail="Repository has not been cloned yet")
+    from worker.ingest.code_pipeline import enqueue_reembed_code
+
+    task_id = enqueue_reembed_code(str(session.org_uuid), str(repo.id))
+    if task_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not enqueue re-embed (is Redis/Celery available?)",
+        )
+    return IndexCodeOut(message="Re-embed enqueued", task_id=task_id)

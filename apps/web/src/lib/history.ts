@@ -67,3 +67,14 @@ export async function triggerIndexHistory(
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function triggerReembed(
+  repoId: string,
+): Promise<{ message: string; task_id: string | null }> {
+  const res = await fetch(`${API_BASE}/repos/${repoId}/reembed`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

@@ -25,5 +25,5 @@ def ping() -> str:
 
 
 # Import task modules so their @celery_app.task decorators register them.
-# (Placed last to avoid a circular import: ingest modules import `celery_app`.)
-from worker import ingest  # noqa: F401
+# (Placed last to avoid a circular import: task modules import `celery_app`.)
+from worker import bot, ingest  # noqa: F401

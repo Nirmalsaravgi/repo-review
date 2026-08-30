@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Repository } from "@/lib/api";
 import { ChatPanel } from "./ChatPanel";
 import { GraphPanel } from "./GraphPanel";
@@ -8,6 +9,14 @@ import { HistoryPanel } from "./HistoryPanel";
 import styles from "./RepoPicker.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+
+type View = "graph" | "chat" | "insights";
+
+const VIEWS: { id: View; label: string; icon: string }[] = [
+  { id: "graph", label: "Structure", icon: "◈" },
+  { id: "chat", label: "Chat", icon: "✦" },
+  { id: "insights", label: "Git intelligence", icon: "◷" },
+];
 
 export function RepoPicker({
   initialRepos,
@@ -20,6 +29,7 @@ export function RepoPicker({
   const [filter, setFilter] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>("graph");
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -61,9 +71,7 @@ export function RepoPicker({
       const updated = (await res.json()) as Repository;
       setRepos((prev) =>
         prev.map((r) =>
-          r.github_repo_id === updated.github_repo_id
-            ? updated
-            : { ...r, selected: false },
+          r.github_repo_id === updated.github_repo_id ? updated : { ...r, selected: false },
         ),
       );
       pollStatus(updated.id);
@@ -89,90 +97,129 @@ export function RepoPicker({
     <section className={styles.wrap}>
       <div className={styles.toolbar}>
         <div>
-          <h1 className={styles.title}>Select a repository</h1>
+          <h1 className={styles.title}>Repositories</h1>
           <p className={styles.copy}>
-            Selecting a repo starts a shallow clone for chat. History indexing and code/structure
-            indexing (symbols, call graph) run in the background via Celery after the clone is ready.
+            Select a repo to clone it for chat. History and code/structure indexing run in the
+            background.
           </p>
         </div>
         <div className={styles.actions}>
           <button type="button" className={styles.ghost} onClick={syncRepos}>
-            Sync from GitHub
+            <span className={styles.ghostIcon}>↻</span> Sync from GitHub
           </button>
           {installUrl ? (
-            <a className={styles.ghostLink} href={installUrl}>
-              Manage App install
+            <a className={styles.ghost} href={installUrl}>
+              Manage install
             </a>
           ) : null}
         </div>
       </div>
 
-      <input
-        className={styles.search}
-        placeholder="Filter repositories…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <div className={styles.searchWrap}>
+        <span className={styles.searchIcon}>⌕</span>
+        <input
+          className={styles.search}
+          placeholder="Filter repositories…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
       {filtered.length === 0 ? (
         <div className={styles.empty}>
-          No repositories yet. Install the GitHub App on an account/org, then sync.
+          No repositories yet. Install the GitHub App on an account or org, then sync.
         </div>
       ) : (
-        <ul className={styles.list}>
-          {filtered.map((repo) => (
-            <li key={repo.id} className={repo.selected ? styles.rowSelected : styles.row}>
-              <div className={styles.meta}>
-                <span className={styles.name}>{repo.full_name}</span>
-                <span className={styles.badge}>{repo.private ? "private" : "public"}</span>
-                <span className={styles.status} data-status={repo.index_status}>
-                  {repo.index_status}
-                  {repo.is_shallow && repo.index_status === "ready" ? " · shallow" : ""}
-                  {repo.index_status === "ready" && repo.index_fresh === false
-                    ? " · syncing"
-                    : ""}
-                </span>
-                {repo.index_error ? (
-                  <span className={styles.errDetail}>{repo.index_error}</span>
-                ) : null}
-                {repo.last_indexed_sha ? (
-                  <span className={styles.sha}>
-                    idx {repo.last_indexed_sha.slice(0, 12)}
-                    {repo.head_sha && repo.head_sha !== repo.last_indexed_sha
-                      ? ` · head ${repo.head_sha.slice(0, 12)}`
-                      : ""}
-                  </span>
-                ) : null}
-              </div>
-              <button
+        <div className={styles.grid}>
+          {filtered.map((repo) => {
+            const active = repo.selected;
+            const cloning = repo.index_status === "cloning";
+            return (
+              <motion.button
+                key={repo.id}
                 type="button"
-                className={styles.select}
-                disabled={busyId === repo.github_repo_id || repo.index_status === "cloning"}
+                layout
+                whileHover={{ y: -2 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className={active ? styles.cardActive : styles.card}
+                disabled={busyId === repo.github_repo_id || cloning}
                 onClick={() => selectRepo(repo.github_repo_id)}
               >
-                {repo.index_status === "cloning"
-                  ? "Cloning…"
-                  : repo.selected
-                    ? "Re-clone"
-                    : "Select"}
-              </button>
-            </li>
-          ))}
-        </ul>
+                <div className={styles.cardTop}>
+                  <span className={styles.repoName}>{repo.full_name}</span>
+                  <span className={styles.privacy}>{repo.private ? "private" : "public"}</span>
+                </div>
+                <div className={styles.cardMeta}>
+                  <span className={styles.statusDot} data-status={repo.index_status} />
+                  <span className={styles.statusText} data-status={repo.index_status}>
+                    {cloning
+                      ? "Cloning…"
+                      : repo.index_status === "ready"
+                        ? "Ready"
+                        : repo.index_status}
+                    {repo.is_shallow && repo.index_status === "ready" ? " · shallow" : ""}
+                    {repo.index_status === "ready" && repo.index_fresh === false ? " · syncing" : ""}
+                  </span>
+                  {repo.last_indexed_sha ? (
+                    <span className={styles.sha}>{repo.last_indexed_sha.slice(0, 7)}</span>
+                  ) : null}
+                </div>
+                {repo.index_error ? <span className={styles.errDetail}>{repo.index_error}</span> : null}
+                <span className={styles.cardCta}>
+                  {cloning ? "Cloning…" : active ? "Selected — re-clone" : "Select repo →"}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
       )}
 
       {activeRepo ? (
         <div className={styles.workspace}>
-          <ChatPanel repo={activeRepo} />
-          <GraphPanel repo={activeRepo} />
-          <HistoryPanel repo={activeRepo} />
+          <div className={styles.workspaceHead}>
+            <div className={styles.repoHeading}>
+              <span className={styles.repoHeadingName}>{activeRepo.full_name}</span>
+              <span className={styles.branch}>{activeRepo.default_branch}</span>
+            </div>
+            <div className={styles.segmented}>
+              {VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className={styles.segment}
+                  data-active={view === v.id}
+                  onClick={() => setView(v.id)}
+                >
+                  {view === v.id ? (
+                    <motion.span layoutId="segbg" className={styles.segbg} transition={{ type: "spring", stiffness: 500, damping: 40 }} />
+                  ) : null}
+                  <span className={styles.segIcon}>{v.icon}</span>
+                  <span className={styles.segLabel}>{v.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+            >
+              {view === "graph" ? <GraphPanel repo={activeRepo} /> : null}
+              {view === "chat" ? <ChatPanel repo={activeRepo} /> : null}
+              {view === "insights" ? <HistoryPanel repo={activeRepo} /> : null}
+            </motion.div>
+          </AnimatePresence>
         </div>
       ) : (
         <p className={styles.footnote}>
-          Select a repository and wait for it to finish cloning (status “ready”) to start asking
-          questions and view git intelligence.
+          Select a repository and wait for it to reach “Ready” to start asking questions and view
+          structure &amp; git intelligence.
         </p>
       )}
     </section>

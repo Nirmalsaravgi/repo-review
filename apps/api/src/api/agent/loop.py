@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from repo_providers import (
     Completion,
@@ -36,6 +38,7 @@ from repo_providers import (
 from api.agent.cache import ResponseCache
 from api.agent.citations import verify_citations
 from api.agent.context import compact_messages, estimate_tokens
+from api.agent.cost import estimate_cost_usd
 from api.agent.events import (
     AgentEvent,
     AnswerCompleted,
@@ -48,6 +51,14 @@ from api.agent.events import (
 from api.agent.prompt import SYSTEM_PROMPT, build_repo_map, normalize_question
 from api.agent.tools import TOOL_SCHEMAS, arun_tool
 from api.agent.tools.context import ToolContext
+from api.agent.tracing import (
+    NoopTracer,
+    RunTrace,
+    StepTrace,
+    ToolTrace,
+    Tracer,
+    clip_question,
+)
 
 _STEP_BUDGET_MSG = (
     "I couldn't finish within the step budget. Here's what I found so far — "
@@ -78,6 +89,7 @@ class Agent:
     tools: list[dict[str, Any]] = field(default_factory=lambda: list(TOOL_SCHEMAS))
     cache: ResponseCache | None = None
     config: AgentConfig = field(default_factory=AgentConfig)
+    tracer: Tracer = field(default_factory=NoopTracer)
 
     def tool_context(self) -> ToolContext:
         return ToolContext(
@@ -91,13 +103,20 @@ class Agent:
         self, question: str, history: Sequence[Message] | None = None
     ) -> AsyncIterator[AgentEvent]:
         history = list(history or [])
+        trace = self._new_trace(question)
+        run_start = time.perf_counter()
 
         cache_key: str | None = None
         if self.cache is not None and not history:
             cache_key = _cache_key(self.repo_sha, question)
             cached = await self.cache.get(cache_key)
             if cached is not None:
-                yield _completed_from_cache(cached)
+                answer = _completed_from_cache(cached)
+                trace.cached = True
+                trace.citations = len(answer.citations)
+                trace.duration_ms = _elapsed_ms(run_start)
+                self._emit_trace(trace)
+                yield answer
                 return
 
         messages = self._initial_messages(question, history)
@@ -108,6 +127,7 @@ class Agent:
         for step in range(1, self.config.max_steps + 1):
             steps = step
             yield StepStarted(step=step)
+            step_start = time.perf_counter()
 
             if estimate_tokens(messages) > self.config.token_budget:
                 messages = compact_messages(messages, self.config.token_budget)
@@ -125,12 +145,25 @@ class Agent:
                 Message.assistant(text=completion.text or None, tool_calls=completion.tool_calls)
             )
 
+            step_trace = StepTrace(
+                step=step,
+                duration_ms=_elapsed_ms(step_start),
+                input_tokens=completion.usage.input_tokens if completion.usage else None,
+                output_tokens=completion.usage.output_tokens if completion.usage else None,
+            )
+
             if not completion.tool_calls:
+                trace.step_traces.append(step_trace)
                 final_text = completion.text
                 break
 
+            trace.tool_calls += len(completion.tool_calls)
             async for event in self._run_tools(completion.tool_calls, messages):
+                if isinstance(event, ToolFinished):
+                    step_trace.tools.append(ToolTrace(name=event.name, ok=event.ok))
                 yield event
+            step_trace.duration_ms = _elapsed_ms(step_start)
+            trace.step_traces.append(step_trace)
 
         if final_text is None:
             final_text = _STEP_BUDGET_MSG
@@ -141,9 +174,38 @@ class Agent:
         )
         if cache_key is not None and self.cache is not None:
             await self.cache.set(cache_key, _to_cache(answer), self.config.cache_ttl)
+
+        trace.steps = steps
+        trace.input_tokens = usage.input_tokens
+        trace.output_tokens = usage.output_tokens
+        trace.total_tokens = usage.total_tokens
+        trace.cost_usd = estimate_cost_usd(trace.model, usage)
+        trace.citations = len(citations)
+        trace.duration_ms = _elapsed_ms(run_start)
+        self._emit_trace(trace)
         yield answer
 
     # -- internals ---------------------------------------------------------- #
+    def _new_trace(self, question: str) -> RunTrace:
+        return RunTrace(
+            trace_id=uuid4().hex,
+            question=clip_question(question),
+            repo_full_name=self.repo_full_name,
+            repo_sha=self.repo_sha,
+            org_id=str(self.org_id) if self.org_id else None,
+            repo_id=str(self.repo_id) if self.repo_id else None,
+            model=getattr(self.provider, "model", "") or "",
+            started_at=datetime.now(UTC).isoformat(),
+        )
+
+    def _emit_trace(self, trace: RunTrace) -> None:
+        try:
+            self.tracer.emit(trace)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("tracer.emit failed")
+
     def _initial_messages(self, question: str, history: list[Message]) -> list[Message]:
         repo_map = self.repo_map_text or build_repo_map(self.root)
         header = f"Repository: {self.repo_full_name or 'unknown'}\n\n{repo_map}"
@@ -186,6 +248,10 @@ class Agent:
             )
             results.append(ToolResult(id=call.id, name=call.name, response=envelope))
         messages.append(Message.tool(results))
+
+
+def _elapsed_ms(start: float) -> float:
+    return round((time.perf_counter() - start) * 1000, 2)
 
 
 def _cache_key(repo_sha: str, question: str) -> str:

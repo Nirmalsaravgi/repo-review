@@ -91,11 +91,81 @@ async def index_code(org_id: str, repo_id: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc), "stats": stats}
 
 
+async def reembed_code(org_id: str, repo_id: str) -> dict[str, Any]:
+    """Force a full re-embed of an already-indexed repo (e.g. after mock → voyage).
+
+    Only touches chunks/embeddings — symbols and edges are left alone. Never raises;
+    records its own `reembed` index_run.
+    """
+    org_uuid = UUID(org_id)
+    repo_uuid = UUID(repo_id)
+
+    async with session_scope(org_uuid) as db:
+        repo = (
+            await db.execute(select(Repository).where(Repository.id == repo_uuid))
+        ).scalar_one_or_none()
+        if repo is None:
+            return {"ok": False, "error": "repository not found"}
+        if not repo.clone_path:
+            return {"ok": False, "error": "missing clone_path"}
+        run = IndexRun(
+            id=uuid4(), org_id=org_uuid, repo_id=repo.id, trigger="reembed", status="running"
+        )
+        db.add(run)
+        await db.flush()
+        run_id = run.id
+        clone_path = repo.clone_path
+        full_name = repo.full_name
+
+    try:
+        async with session_scope(org_uuid) as db:
+            stats = await sync_and_embed_repo(
+                db,
+                org_id=org_uuid,
+                repo_id=repo_uuid,
+                clone_path=clone_path,
+                repo_full_name=full_name,
+                force=True,
+            )
+            run = await db.get(IndexRun, run_id)
+            if run:
+                run.status = "success"
+                run.stats = {"embed": stats}
+                run.finished_at = datetime.now(UTC)
+        logger.info("reembed_code complete for %s: %s", full_name, stats)
+        return {"ok": True, "stats": stats}
+    except Exception as exc:
+        logger.exception("reembed_code failed for repo %s", repo_id)
+        async with session_scope(org_uuid) as db:
+            run = await db.get(IndexRun, run_id)
+            if run:
+                run.status = "error"
+                run.error = str(exc)
+                run.finished_at = datetime.now(UTC)
+        return {"ok": False, "error": str(exc)}
+
+
 @celery_app.task(name="worker.ingest.index_code")
 def index_code_task(org_id: str, repo_id: str) -> dict[str, Any]:
     from worker.async_utils import run_async
 
     return run_async(index_code(org_id, repo_id))
+
+
+@celery_app.task(name="worker.ingest.reembed_code")
+def reembed_code_task(org_id: str, repo_id: str) -> dict[str, Any]:
+    from worker.async_utils import run_async
+
+    return run_async(reembed_code(org_id, repo_id))
+
+
+def enqueue_reembed_code(org_id: str, repo_id: str) -> str | None:
+    try:
+        result = reembed_code_task.delay(org_id, repo_id)
+        return str(result.id)
+    except Exception:
+        logger.exception("Failed to enqueue reembed_code for %s/%s", org_id, repo_id)
+        return None
 
 
 def enqueue_index_code(org_id: str, repo_id: str) -> str | None:

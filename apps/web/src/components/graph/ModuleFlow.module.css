@@ -1,0 +1,131 @@
+.canvas {
+  position: relative;
+  height: min(72vh, 680px);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background:
+    radial-gradient(600px 300px at 30% 0%, var(--accent-soft), transparent 60%),
+    var(--bg-2);
+}
+
+/* Node */
+.node {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.8rem;
+  min-width: 148px;
+  max-width: 220px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+}
+
+.node:hover {
+  border-color: color-mix(in srgb, var(--hue) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hue) 40%, transparent),
+    0 10px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+.node[data-active="true"] {
+  border-color: var(--hue);
+  box-shadow: 0 0 0 1px var(--hue), 0 0 24px -6px color-mix(in srgb, var(--hue) 60%, transparent);
+  background: var(--surface-3);
+}
+
+.nodeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.nodeText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.nodeLabel {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeSub {
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+
+.handle {
+  width: 6px;
+  height: 6px;
+  background: var(--faint);
+  border: none;
+  opacity: 0;
+}
+
+/* React Flow chrome overrides */
+.canvas :global(.react-flow__controls) {
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+
+.canvas :global(.react-flow__controls-button) {
+  background: var(--surface-2);
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  fill: var(--text);
+  width: 30px;
+  height: 30px;
+}
+
+.canvas :global(.react-flow__controls-button:hover) {
+  background: var(--surface-3);
+}
+
+.canvas :global(.react-flow__controls-button svg) {
+  fill: var(--muted);
+}
+
+.minimap {
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.minimap :global(.react-flow__minimap-mask) {
+  fill: var(--flow-mask);
+}
+
+.hintBadge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  font-size: 0.76rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  max-width: min(70%, 480px);
+}
+
+.hintBadge strong {
+  color: var(--text);
+  font-family: var(--mono);
+  font-weight: 600;
+}

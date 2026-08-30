@@ -1,13 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { motion } from "framer-motion";
 import type { Repository } from "@/lib/api";
+import { Markdown } from "./chat/Markdown";
 import styles from "./ChatPanel.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
 type Citation = { path: string; start_line: number; end_line: number };
 type Turn = { role: "user" | "assistant"; content: string; citations?: Citation[] };
+
+const SUGGESTIONS = [
+  "Where is authentication handled?",
+  "Give me a high-level architecture overview",
+  "Who owns the payments code?",
+  "How does the request flow work end to end?",
+];
 
 export function ChatPanel({ repo }: { repo: Repository }) {
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -33,9 +42,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
       next[next.length - 1] = fn(next[next.length - 1]);
       return next;
     });
-    queueMicrotask(() =>
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
-    );
+    queueMicrotask(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }));
   }
 
   function onEvent(event: string, data: Record<string, unknown>) {
@@ -48,8 +55,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
     } else if (event === "delta") {
       updateLast((t) => ({ ...t, content: t.content + (data.text as string) }));
     } else if (event === "done") {
-      conversationId.current =
-        (data.conversation_id as string) || conversationId.current;
+      conversationId.current = (data.conversation_id as string) || conversationId.current;
       updateLast((t) => ({
         ...t,
         content: data.text as string,
@@ -61,8 +67,8 @@ export function ChatPanel({ repo }: { repo: Repository }) {
     }
   }
 
-  async function ask() {
-    const question = input.trim();
+  async function ask(text?: string) {
+    const question = (text ?? input).trim();
     if (!question || busy) return;
     setInput("");
     setError(null);
@@ -78,10 +84,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question,
-          conversation_id: conversationId.current,
-        }),
+        body: JSON.stringify({ question, conversation_id: conversationId.current }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       await readSse(res.body, onEvent);
@@ -97,10 +100,8 @@ export function ChatPanel({ repo }: { repo: Repository }) {
     <section className={styles.panel}>
       <header className={styles.head}>
         <div>
-          <h2 className={styles.title}>Ask about {repo.full_name}</h2>
-          <span className={styles.hint}>
-            Answers are grounded in the cloned code, with line citations.
-          </span>
+          <h2 className={styles.title}>Ask about this repository</h2>
+          <span className={styles.hint}>Grounded in the cloned code, with line-level citations.</span>
         </div>
         <button
           type="button"
@@ -114,45 +115,82 @@ export function ChatPanel({ repo }: { repo: Repository }) {
 
       <div className={styles.log} ref={scrollRef}>
         {turns.length === 0 ? (
-          <p className={styles.empty}>
-            Try: “Where is authentication handled?”, “Who owns this file?”, or “Why is this line
-            here?”
-          </p>
-        ) : (
-          turns.map((t, i) => (
-            <div key={i} className={t.role === "user" ? styles.user : styles.assistant}>
-              <div className={styles.bubble}>
-                {t.content || (busy && i === turns.length - 1 ? "…" : "")}
-              </div>
-              {t.citations && t.citations.length > 0 ? (
-                <ul className={styles.citations}>
-                  {t.citations.map((c, j) => (
-                    <li key={j}>
-                      <a
-                        href={citationUrl(repo, c)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.cite}
-                      >
-                        {c.path}:{c.start_line}-{c.end_line}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+          <div className={styles.welcome}>
+            <div className={styles.welcomeIcon}>✦</div>
+            <p className={styles.welcomeTitle}>Ask anything about {repo.full_name}</p>
+            <div className={styles.suggestions}>
+              {SUGGESTIONS.map((s) => (
+                <button key={s} type="button" className={styles.chip} onClick={() => void ask(s)}>
+                  {s}
+                </button>
+              ))}
             </div>
-          ))
+          </div>
+        ) : (
+          turns.map((t, i) => {
+            const streaming = busy && i === turns.length - 1 && t.role === "assistant";
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={t.role === "user" ? styles.userRow : styles.assistantRow}
+              >
+                {t.role === "assistant" ? <div className={styles.avatar}>✦</div> : null}
+                <div className={t.role === "user" ? styles.userBubble : styles.assistantBubble}>
+                  {t.role === "user" ? (
+                    <span className={styles.userText}>{t.content}</span>
+                  ) : t.content ? (
+                    <Markdown>{t.content}</Markdown>
+                  ) : streaming ? (
+                    <span className={styles.typing}>
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  ) : null}
+
+                  {t.citations && t.citations.length > 0 ? (
+                    <div className={styles.citations}>
+                      <span className={styles.citLabel}>Sources</span>
+                      {t.citations.map((c, j) => (
+                        <a
+                          key={j}
+                          href={citationUrl(repo, c)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.cite}
+                        >
+                          <span className={styles.citIcon}>{"</>"}</span>
+                          {c.path.split("/").pop()}
+                          <span className={styles.citLines}>
+                            :{c.start_line}-{c.end_line}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </motion.div>
+            );
+          })
         )}
       </div>
 
-      {status ? <div className={styles.status}>{status}</div> : null}
+      {status ? (
+        <div className={styles.status}>
+          <span className={styles.statusDot} />
+          {status}
+        </div>
+      ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <form
         className={styles.composer}
         onSubmit={(e) => {
           e.preventDefault();
-          ask();
+          void ask();
         }}
       >
         <input
@@ -163,7 +201,7 @@ export function ChatPanel({ repo }: { repo: Repository }) {
           disabled={busy}
         />
         <button type="submit" className={styles.send} disabled={busy || !input.trim()}>
-          {busy ? "…" : "Ask"}
+          {busy ? <span className={styles.sendSpinner} /> : "↑"}
         </button>
       </form>
     </section>
@@ -172,10 +210,11 @@ export function ChatPanel({ repo }: { repo: Repository }) {
 
 function argPreview(args: unknown): string {
   if (!args || typeof args !== "object") return "";
-  const parts = Object.values(args as Record<string, unknown>)
+  return Object.values(args as Record<string, unknown>)
     .map((v) => String(v))
-    .filter(Boolean);
-  return parts.join(", ").slice(0, 60);
+    .filter(Boolean)
+    .join(", ")
+    .slice(0, 60);
 }
 
 function citationUrl(repo: Repository, c: Citation): string {
@@ -205,11 +244,11 @@ async function readSse(
         if (line.startsWith("event:")) event = line.slice(6).trim();
         else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
       }
-      if (dataLines.length === 0) continue; // comment/ping frame
+      if (dataLines.length === 0) continue;
       try {
         onEvent(event, JSON.parse(dataLines.join("\n")));
       } catch {
-        // ignore malformed frame
+        /* ignore malformed frame */
       }
     }
   }

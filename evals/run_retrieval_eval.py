@@ -71,8 +71,25 @@ def build_symbol_index(root: Path) -> list[SymbolRow]:
     return symbols
 
 
+def _select_embedder():
+    """Real Voyage embedder when EMBEDDING_PROVIDER is set, else the mock (dims=128).
+
+    Lets this A/B the semantic channel: run once with the mock and once with a real
+    key to see whether real embeddings actually lift hybrid recall over Phase 0.
+    """
+    from repo_core.config import get_settings
+
+    settings = get_settings()
+    provider = (settings.embedding_provider or "").strip().lower()
+    if provider and provider not in {"mock", "fake", "hash"}:
+        from repo_providers.factory import get_embedding_provider
+
+        return get_embedding_provider(settings), f"{provider}:{settings.embedding_model}"
+    return MockEmbeddingProvider(dimensions=128), "mock:128"
+
+
 async def build_memory_docs(
-    root: Path, embedder: MockEmbeddingProvider
+    root: Path, embedder
 ) -> list[tuple[RetrievalHit, list[float]]]:
     docs: list[tuple[RetrievalHit, list[float]]] = []
     for i, (rel, path) in enumerate(_iter_sources(root)):
@@ -130,7 +147,8 @@ async def main() -> None:
     print(f"retrieval eval | root={root} | items={len(answerable)}")
     symbols = build_symbol_index(root)
     print(f"  indexed symbols: {len(symbols)}")
-    embedder = MockEmbeddingProvider(dimensions=128)
+    embedder, embed_label = _select_embedder()
+    print(f"  embedder: {embed_label}")
     memory_docs = await build_memory_docs(root, embedder)
     print(f"  embedded files: {len(memory_docs)}")
 

@@ -1,0 +1,32 @@
+.toggle {
+  width: 60px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: var(--surface-2);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: background 0.2s ease;
+}
+
+.toggle[data-mode="dark"] {
+  justify-content: flex-end;
+}
+
+.toggle[data-mode="light"] {
+  justify-content: flex-start;
+}
+
+.knob {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--grad);
+  color: var(--on-accent);
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-sm);
+}

@@ -1,7 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +44,18 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
     embedding_model: str = "voyage-code-3"
     embedding_dims: int = 1024
+
+    # Observability — agent-run tracing. Empty/"none" = no-op (default).
+    # "jsonl" appends one run record per line to `tracing_file`.
+    tracing_backend: str = ""
+    tracing_file: str = "./data/traces.jsonl"
+
+    # Phase 4 PR review bot — OFF by default. Posting to GitHub is public and
+    # irreversible, so nothing is posted until this is deliberately enabled;
+    # with it off the bot computes and stores a dry-run review but never posts.
+    pr_bot_enabled: bool = False
+    pr_bot_min_confidence: float = 0.75
+    pr_bot_max_comments: int = 3
 
     @property
     def cors_origin_list(self) -> list[str]:
