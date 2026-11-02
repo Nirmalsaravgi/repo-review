@@ -159,6 +159,7 @@ async def _handle_installation_repos(payload: dict[str, Any]) -> None:
                         id=uuid4(),
                         org_id=installation.org_id,
                         installation_id=installation.id,
+                        source="github",
                         github_repo_id=gh["id"],
                         full_name=gh["full_name"],
                         default_branch="main",

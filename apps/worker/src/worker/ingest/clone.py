@@ -35,8 +35,12 @@ async def deepen_repo(org_id: str, repo_id: str) -> dict[str, Any]:
         repo = result.scalar_one_or_none()
         if repo is None:
             return {"ok": False, "error": "repository not found"}
+        if repo.is_local:
+            return {"ok": False, "error": "local repositories are already a full checkout"}
         if repo.installation is None:
             return {"ok": False, "error": "missing installation"}
+        if repo.github_repo_id is None:
+            return {"ok": False, "error": "missing github_repo_id"}
 
         run = IndexRun(
             id=uuid4(),

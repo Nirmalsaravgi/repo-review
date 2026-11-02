@@ -148,7 +148,13 @@ def walk_commits(
     limit: int | None = None,
 ) -> list[ExtractedCommit]:
     """Walk history newest-first; skip shas already known. Optional limit for tests."""
-    repo = pygit2.Repository(str(clone_path))
+    root = Path(clone_path)
+    if not root.is_dir() or not (root / ".git").exists():
+        return []
+    try:
+        repo = pygit2.Repository(str(root))
+    except Exception:
+        return []
     if repo.is_empty:
         return []
     skip = skip_shas or set()

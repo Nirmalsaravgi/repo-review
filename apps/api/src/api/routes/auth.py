@@ -246,6 +246,7 @@ async def _sync_repos(db: AsyncSession, *, org: Org, installation: Installation)
                 id=uuid4(),
                 org_id=org.id,
                 installation_id=installation.id,
+                source="github",
                 github_repo_id=gh["id"],
                 full_name=gh["full_name"],
                 default_branch=gh.get("default_branch") or "main",

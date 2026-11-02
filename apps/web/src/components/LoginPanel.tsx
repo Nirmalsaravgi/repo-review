@@ -19,10 +19,10 @@ export function LoginPanel({ session }: { session: Session }) {
 
   return (
     <section className={styles.panel}>
-      <h1 className={styles.title}>Connect a GitHub repository</h1>
+      <h1 className={styles.title}>Connect a repository</h1>
       <p className={styles.copy}>
-        Sign in with GitHub, install the App on your org or account, then pick a repo to
-        clone. Phase 0 starts with a shallow clone and agentic chat — no index yet.
+        Sign in with GitHub, then pick a GitHub repo to clone or open a folder on this
+        machine. We build a brief, architecture map, and chat index in the background.
       </p>
 
       {!session.github_configured ? (

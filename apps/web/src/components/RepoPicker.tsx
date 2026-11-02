@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Repository } from "@/lib/api";
 import { isFlowQuestion, queryFlow } from "@/lib/understanding";
@@ -14,6 +14,17 @@ import { OverviewPanel } from "./OverviewPanel";
 import styles from "./RepoPicker.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+
+async function readApiError(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const body = JSON.parse(text) as { detail?: unknown };
+    if (typeof body.detail === "string") return body.detail;
+  } catch {
+    /* raw text */
+  }
+  return text || `Request failed: ${res.status}`;
+}
 
 type View = "overview" | "architecture" | "flows" | "apis" | "chat" | "more";
 
@@ -35,7 +46,10 @@ export function RepoPicker({
 }) {
   const [repos, setRepos] = useState(initialRepos);
   const [filter, setFilter] = useState("");
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [localPath, setLocalPath] = useState("");
+  const [localName, setLocalName] = useState("");
+  const [localBusy, setLocalBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("overview");
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -63,7 +77,7 @@ export function RepoPicker({
         method: "POST",
         credentials: "include",
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res));
       const data = (await res.json()) as Repository[];
       setRepos(data);
     } catch (e) {
@@ -71,28 +85,54 @@ export function RepoPicker({
     }
   }
 
-  async function selectRepo(githubRepoId: number) {
-    setBusyId(githubRepoId);
+  async function selectRepo(repoId: string) {
+    setBusyId(repoId);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/repos/select`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ github_repo_id: githubRepoId }),
+        body: JSON.stringify({ repo_id: repoId }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res));
       const updated = (await res.json()) as Repository;
       setRepos((prev) =>
-        prev.map((r) =>
-          r.github_repo_id === updated.github_repo_id ? updated : { ...r, selected: false },
-        ),
+        prev.map((r) => (r.id === updated.id ? updated : { ...r, selected: false })),
       );
-      pollStatus(updated.id);
+      if (updated.source !== "local") pollStatus(updated.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Select failed");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function registerLocal(e: FormEvent) {
+    e.preventDefault();
+    const path = localPath.trim();
+    if (!path) return;
+    setLocalBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/repos/register-local`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, name: localName.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      const created = (await res.json()) as Repository;
+      setRepos((prev) => {
+        const without = prev.filter((r) => r.id !== created.id).map((r) => ({ ...r, selected: false }));
+        return [created, ...without];
+      });
+      setLocalPath("");
+      setLocalName("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open local folder");
+    } finally {
+      setLocalBusy(false);
     }
   }
 
@@ -141,8 +181,8 @@ export function RepoPicker({
         <div>
           <h1 className={styles.title}>Repositories</h1>
           <p className={styles.copy}>
-            Select a repo to clone it. We build a brief, architecture map, and chat index in the
-            background.
+            Select a GitHub repo to clone it, or open a folder on this machine. We build a brief,
+            architecture map, and chat index in the background.
           </p>
         </div>
         <div className={styles.actions}>
@@ -156,6 +196,31 @@ export function RepoPicker({
           ) : null}
         </div>
       </div>
+
+      <form className={styles.localForm} onSubmit={(e) => void registerLocal(e)}>
+        <div className={styles.localFields}>
+          <input
+            className={styles.localPath}
+            placeholder="Local path on this machine — e.g. D:\projects\my-app"
+            value={localPath}
+            onChange={(e) => setLocalPath(e.target.value)}
+            spellCheck={false}
+          />
+          <input
+            className={styles.localName}
+            placeholder="Name (optional)"
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+          />
+        </div>
+        <button type="submit" className={styles.localSubmit} disabled={localBusy || !localPath.trim()}>
+          {localBusy ? "Opening…" : "Open local folder"}
+        </button>
+        <p className={styles.localHint}>
+          The API and worker must be able to read this path (same machine as the server). GitHub
+          login is still required. PR reviews stay GitHub-only.
+        </p>
+      </form>
 
       <div className={styles.searchWrap}>
         <span className={styles.searchIcon}>⌕</span>
@@ -171,13 +236,14 @@ export function RepoPicker({
 
       {filtered.length === 0 ? (
         <div className={styles.empty}>
-          No repositories yet. Install the GitHub App on an account or org, then sync.
+          No repositories yet. Sync from GitHub, or open a local folder above.
         </div>
       ) : (
         <div className={styles.grid}>
           {filtered.map((repo) => {
             const active = repo.selected;
             const cloning = repo.index_status === "cloning";
+            const local = repo.source === "local";
             return (
               <motion.button
                 key={repo.id}
@@ -186,13 +252,20 @@ export function RepoPicker({
                 whileHover={{ y: -2 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 className={active ? styles.cardActive : styles.card}
-                disabled={busyId === repo.github_repo_id || cloning}
-                onClick={() => selectRepo(repo.github_repo_id)}
+                disabled={busyId === repo.id || cloning}
+                onClick={() => selectRepo(repo.id)}
               >
                 <div className={styles.cardTop}>
                   <span className={styles.repoName}>{repo.full_name}</span>
-                  <span className={styles.privacy}>{repo.private ? "private" : "public"}</span>
+                  <span className={local ? styles.localBadge : styles.privacy}>
+                    {local ? "local" : repo.private ? "private" : "public"}
+                  </span>
                 </div>
+                {local && repo.clone_path ? (
+                  <span className={styles.localPathHint} title={repo.clone_path}>
+                    {repo.clone_path}
+                  </span>
+                ) : null}
                 <div className={styles.cardMeta}>
                   <span className={styles.statusDot} data-status={repo.index_status} />
                   <span className={styles.statusText} data-status={repo.index_status}>
@@ -201,7 +274,7 @@ export function RepoPicker({
                       : repo.index_status === "ready"
                         ? "Ready"
                         : repo.index_status}
-                    {repo.is_shallow && repo.index_status === "ready" ? " · shallow" : ""}
+                    {repo.is_shallow && repo.index_status === "ready" && !local ? " · shallow" : ""}
                     {repo.index_status === "ready" && repo.index_fresh === false ? " · syncing" : ""}
                   </span>
                   {repo.last_indexed_sha ? (
@@ -210,7 +283,15 @@ export function RepoPicker({
                 </div>
                 {repo.index_error ? <span className={styles.errDetail}>{repo.index_error}</span> : null}
                 <span className={styles.cardCta}>
-                  {cloning ? "Cloning…" : active ? "Selected — re-clone" : "Select repo →"}
+                  {cloning
+                    ? "Cloning…"
+                    : active
+                      ? local
+                        ? "Selected — reindex"
+                        : "Selected — re-clone"
+                      : local
+                        ? "Open →"
+                        : "Select repo →"}
                 </span>
               </motion.button>
             );
@@ -223,6 +304,7 @@ export function RepoPicker({
           <div className={styles.workspaceHead}>
             <div className={styles.repoHeading}>
               <span className={styles.repoHeadingName}>{activeRepo.full_name}</span>
+              {activeRepo.source === "local" ? <span className={styles.localBadge}>local</span> : null}
               <span className={styles.branch}>{activeRepo.default_branch}</span>
             </div>
             {flowQuerying ? <span className={styles.branch}>Tracing a flow…</span> : null}

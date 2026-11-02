@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ORMModel(BaseModel):
@@ -26,7 +26,8 @@ class OrgOut(ORMModel):
 class RepositoryOut(ORMModel):
     id: UUID
     org_id: UUID
-    github_repo_id: int
+    github_repo_id: int | None = None
+    source: str = "github"
     full_name: str
     default_branch: str
     private: bool
@@ -51,7 +52,19 @@ class SessionOut(BaseModel):
 
 
 class SelectRepoRequest(BaseModel):
-    github_repo_id: int = Field(..., description="GitHub repository numeric id")
+    repo_id: UUID | None = None
+    github_repo_id: int | None = Field(None, description="GitHub repository numeric id")
+
+    @model_validator(mode="after")
+    def _require_id(self) -> "SelectRepoRequest":
+        if self.repo_id is None and self.github_repo_id is None:
+            raise ValueError("repo_id or github_repo_id is required")
+        return self
+
+
+class RegisterLocalRepoRequest(BaseModel):
+    path: str = Field(..., min_length=1, max_length=1024)
+    name: str | None = Field(None, max_length=512)
 
 
 class HealthOut(BaseModel):

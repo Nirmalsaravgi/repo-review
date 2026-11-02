@@ -23,7 +23,8 @@ export type Session = {
 export type Repository = {
   id: string;
   org_id: string;
-  github_repo_id: number;
+  github_repo_id: number | null;
+  source?: "github" | "local" | string;
   full_name: string;
   default_branch: string;
   private: boolean;

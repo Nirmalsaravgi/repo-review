@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     clone_root: Path = Path("./data/clones")
     clone_depth: int = 1
+    # Comma-separated directories the API may index in place. Empty = any
+    # readable folder except filesystem/system roots (local-dev default).
+    local_repo_roots: str = ""
 
     github_app_id: str = ""
     github_app_client_id: str = ""
@@ -60,6 +63,14 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def local_repo_root_list(self) -> list[Path]:
+        return [
+            Path(p.strip()).expanduser().resolve()
+            for p in self.local_repo_roots.split(",")
+            if p.strip()
+        ]
 
     @property
     def github_configured(self) -> bool:

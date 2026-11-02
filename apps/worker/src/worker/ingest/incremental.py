@@ -44,8 +44,12 @@ async def sync_on_push(
         repo = result.scalar_one_or_none()
         if repo is None:
             return {"ok": False, "error": "repository not found"}
+        if repo.is_local:
+            return {"ok": False, "error": "local repositories do not sync from GitHub push"}
         if repo.installation is None:
             return {"ok": False, "error": "missing installation"}
+        if repo.github_repo_id is None:
+            return {"ok": False, "error": "missing github_repo_id"}
         if not repo.clone_path:
             return {"ok": False, "error": "missing clone_path"}
 

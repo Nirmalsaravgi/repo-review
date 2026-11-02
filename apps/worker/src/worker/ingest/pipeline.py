@@ -36,7 +36,8 @@ async def index_history(org_id: str, repo_id: str) -> dict[str, Any]:
         repo = result.scalar_one_or_none()
         if repo is None:
             return {"ok": False, "error": "repository not found"}
-        if repo.installation is None:
+        is_local = repo.is_local
+        if not is_local and repo.installation is None:
             return {"ok": False, "error": "missing installation"}
         if not repo.clone_path:
             return {"ok": False, "error": "missing clone_path"}
@@ -51,13 +52,15 @@ async def index_history(org_id: str, repo_id: str) -> dict[str, Any]:
         db.add(run)
         await db.flush()
         run_id = run.id
-        installation_id = repo.installation.github_installation_id
+        installation_id = (
+            repo.installation.github_installation_id if repo.installation is not None else None
+        )
         full_name = repo.full_name
         is_shallow = repo.is_shallow
         clone_path = repo.clone_path
 
     try:
-        if is_shallow:
+        if is_shallow and not is_local:
             deepen_stats = await deepen_repo(org_id, repo_id)
             stats["deepen"] = deepen_stats
             if not deepen_stats.get("ok"):
@@ -80,14 +83,17 @@ async def index_history(org_id: str, repo_id: str) -> dict[str, Any]:
             )
             stats["history"] = hist
 
-            pr_stats = await backfill_pull_requests(
-                db,
-                org_id=org_uuid,
-                repo_id=repo_uuid,
-                full_name=full_name,
-                installation_id=installation_id,
-            )
-            stats["pull_requests"] = pr_stats
+            if is_local or installation_id is None:
+                stats["pull_requests"] = {"skipped": True, "reason": "local"}
+            else:
+                pr_stats = await backfill_pull_requests(
+                    db,
+                    org_id=org_uuid,
+                    repo_id=repo_uuid,
+                    full_name=full_name,
+                    installation_id=installation_id,
+                )
+                stats["pull_requests"] = pr_stats
 
             own = await recompute_ownership(db, org_id=org_uuid, repo_id=repo_uuid)
             stats["ownership"] = own

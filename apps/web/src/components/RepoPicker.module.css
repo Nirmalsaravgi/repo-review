@@ -59,6 +59,91 @@
   color: var(--accent-2);
 }
 
+/* Local folder */
+.localForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.localFields {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.localPath,
+.localName {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  color: var(--text);
+  border-radius: var(--r-sm);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease;
+}
+
+.localPath {
+  flex: 1 1 18rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.localName {
+  flex: 0 1 10rem;
+}
+
+.localPath:focus,
+.localName:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.localSubmit {
+  align-self: flex-start;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 0.55rem 0.95rem;
+  font-size: 0.86rem;
+  font-weight: 550;
+}
+
+.localSubmit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.localHint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--faint);
+}
+
+.localBadge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-2);
+  background: var(--accent-soft);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.localPathHint {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Search */
 .searchWrap {
   position: relative;

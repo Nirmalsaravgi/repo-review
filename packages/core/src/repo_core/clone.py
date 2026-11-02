@@ -134,9 +134,20 @@ def _fetch_existing(
     )
 
 
-def wipe_clone(path: str | Path | None) -> None:
+def wipe_clone(path: str | Path | None, *, clone_root: Path | None = None) -> None:
+    """Delete a GitHub clone. Refuses anything outside `clone_root` (never a local repo)."""
     if not path:
         return
     p = Path(path)
-    if p.exists():
-        shutil.rmtree(p, ignore_errors=True)
+    try:
+        resolved = p.resolve()
+    except OSError:
+        return
+    root = (clone_root or get_settings().clone_root).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        logger.warning("Refusing to wipe path outside clone_root: %s", resolved)
+        return
+    if resolved.exists():
+        shutil.rmtree(resolved, ignore_errors=True)

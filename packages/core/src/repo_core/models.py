@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -36,6 +37,11 @@ class IndexStatus(StrEnum):
     READY = "ready"
     ERROR = "error"
     REVOKED = "revoked"
+
+
+class RepoSource(StrEnum):
+    GITHUB = "github"
+    LOCAL = "local"
 
 
 class Org(Base):
@@ -99,7 +105,20 @@ class Installation(Base):
 class Repository(Base):
     __tablename__ = "repositories"
     __table_args__ = (
-        UniqueConstraint("org_id", "github_repo_id", name="uq_repos_org_github"),
+        Index(
+            "uq_repos_org_github",
+            "org_id",
+            "github_repo_id",
+            unique=True,
+            postgresql_where=text("github_repo_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_repos_org_local_path",
+            "org_id",
+            "clone_path",
+            unique=True,
+            postgresql_where=text("source = 'local'"),
+        ),
         Index("ix_repositories_org_id", "org_id"),
     )
 
@@ -110,7 +129,10 @@ class Repository(Base):
     installation_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("installations.id", ondelete="SET NULL"), nullable=True
     )
-    github_repo_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=RepoSource.GITHUB.value, server_default="github"
+    )
+    github_repo_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     full_name: Mapped[str] = mapped_column(String(512), nullable=False)
     default_branch: Mapped[str] = mapped_column(String(255), nullable=False, default="main")
     private: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -133,6 +155,10 @@ class Repository(Base):
     org: Mapped[Org] = relationship(back_populates="repositories")
     installation: Mapped[Installation | None] = relationship(back_populates="repositories")
     index_runs: Mapped[list["IndexRun"]] = relationship(back_populates="repository")
+
+    @property
+    def is_local(self) -> bool:
+        return self.source == RepoSource.LOCAL.value
 
 
 class IndexRun(Base):
