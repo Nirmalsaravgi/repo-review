@@ -35,6 +35,15 @@ _FRAMEWORK_IMPORTS: dict[str, str] = {
     "sqlalchemy": "SQLAlchemy",
     "prisma": "Prisma",
     "alembic": "Alembic",
+    "click": "Click",
+    "typer": "Typer",
+    "langchain": "LangChain",
+    "transformers": "Transformers",
+    "torch": "PyTorch",
+    "sklearn": "scikit-learn",
+    "airflow": "Airflow",
+    "dagster": "Dagster",
+    "prefect": "Prefect",
 }
 
 # import-or-package prefix → (display name, kind)
@@ -158,6 +167,25 @@ _MANIFEST_NAMES = frozenset(
     }
 )
 _ENV_NAMES = frozenset({".env.example", ".env.sample", ".env.template"})
+_EXPORT_FILES = frozenset({"__init__.py", "index.ts", "index.js", "index.tsx"})
+_AREA_HINTS = frozenset(
+    {
+        "prompts",
+        "prompt",
+        "evals",
+        "eval",
+        "retrieval",
+        "agents",
+        "agent",
+        "dags",
+        "pipelines",
+        "transforms",
+        "sinks",
+    }
+)
+_TOOL_DEF = re.compile(
+    r"@(?:tool|function_tool)\b|\"type\"\s*:\s*\"function\"|\bBaseTool\b|\bStructuredTool\b"
+)
 
 LAYER_ORDER = ("web", "api", "lib", "worker", "data", "external", "test")
 
@@ -174,6 +202,8 @@ class ManifestFact:
     languages: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
+    scripts: list[str] = field(default_factory=list)
+    is_private: bool = False
 
 
 @dataclass(slots=True)
@@ -234,6 +264,11 @@ class UnderstandingFacts:
     endpoints: list[EndpointFact] = field(default_factory=list)
     jobs: list[JobFact] = field(default_factory=list)
     folders: list[str] = field(default_factory=list)
+    infra_paths: list[str] = field(default_factory=list)
+    ci_paths: list[str] = field(default_factory=list)
+    tool_defs: list[str] = field(default_factory=list)
+    area_hints: list[str] = field(default_factory=list)
+    export_file_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -366,16 +401,32 @@ def iter_repo_files(root: Path) -> Iterable[tuple[str, Path]]:
             or name in _MANIFEST_NAMES
             or name in _ENV_NAMES
             or name.endswith(".toml")
+            or _is_infra_path(rel)
+            or _is_ci_path(rel)
         ):
             yield rel, path
 
 
-def scan_tree(root: str | Path, *, max_files: int = 4000) -> UnderstandingFacts:
-    """Walk a clone and return Layer A facts. Never raises."""
+def scan_tree(
+    root: str | Path,
+    *,
+    max_files: int = 4000,
+    analyzers: Iterable[str] | None = None,
+) -> UnderstandingFacts:
+    """Walk a clone and return Layer A facts. Never raises.
+
+    `analyzers=None` runs every extractor (existing callers). Pass a list to
+    gate route and job extraction — structure, manifests, entry points, and
+    externals always run, because profiling needs them before dispatch.
+    """
     root_p = Path(root)
     facts = UnderstandingFacts()
+    selected = None if analyzers is None else {a.strip().lower() for a in analyzers if a}
+    run_http = selected is None or "http" in selected
+    run_jobs = selected is None or "worker" in selected or "event" in selected
     lang_counts: Counter[str] = Counter()
     folder_counts: Counter[str] = Counter()
+    area_seen: set[str] = set()
     import_hits: list[str] = []
     env_text = ""
     seen = 0
@@ -402,6 +453,13 @@ def scan_tree(root: str | Path, *, max_files: int = 4000) -> UnderstandingFacts:
             env_text += "\n" + text
             continue
 
+        if _is_infra_path(rel):
+            facts.infra_paths.append(rel)
+            continue
+        if _is_ci_path(rel):
+            facts.ci_paths.append(rel)
+            continue
+
         lang = detect_language(rel)
         if lang:
             loc = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
@@ -412,10 +470,20 @@ def scan_tree(root: str | Path, *, max_files: int = 4000) -> UnderstandingFacts:
             segs = [p for p in rel.split("/") if p]
             if segs:
                 folder_counts["/".join(segs[:2] if len(segs) > 1 else segs[:1])] += 1
+            for seg in segs[:-1]:
+                if seg.lower() in _AREA_HINTS and seg.lower() not in area_seen:
+                    area_seen.add(seg.lower())
+                    facts.area_hints.append(seg.lower())
+            if name in _EXPORT_FILES:
+                facts.export_file_count += 1
+            if _TOOL_DEF.search(text):
+                facts.tool_defs.append(rel)
 
-            facts.endpoints.extend(extract_endpoints_from_source(rel, text))
+            if run_http:
+                facts.endpoints.extend(extract_endpoints_from_source(rel, text))
             facts.entry_points.extend(detect_entry_points_in_file(rel, text))
-            facts.jobs.extend(extract_jobs_from_source(rel, text))
+            if run_jobs:
+                facts.jobs.extend(extract_jobs_from_source(rel, text))
             import_hits.extend(_import_names(text, lang))
 
     facts.languages = dict(lang_counts.most_common())
@@ -445,11 +513,21 @@ def parse_manifest(path: str, text: str) -> ManifestFact | None:
             names = sorted(deps)
             langs = ["TypeScript"] if any("typescript" in n for n in names) else ["JavaScript"]
             frames = [label for key, label in _FRAMEWORK_IMPORTS.items() if _pkg_hit(key, names)]
-            return ManifestFact(path, "node", langs, frames, names[:80])
+            bins = _node_bins(data.get("bin"))
+            return ManifestFact(
+                path, "node", langs, frames, names[:80], scripts=bins, is_private=bool(data.get("private"))
+            )
         if name == "pyproject.toml":
             deps = _toml_dep_names(text)
             frames = [label for key, label in _FRAMEWORK_IMPORTS.items() if _pkg_hit(key, deps)]
-            return ManifestFact(path, "python", ["Python"], frames, deps[:80])
+            return ManifestFact(
+                path,
+                "python",
+                ["Python"],
+                frames,
+                deps[:80],
+                scripts=_toml_keys_in_section(text, "project.scripts"),
+            )
         if name.startswith("requirements"):
             deps = []
             for line in text.splitlines():
@@ -468,15 +546,67 @@ def parse_manifest(path: str, text: str) -> ManifestFact | None:
     return None
 
 
+def _node_bins(bin_field: Any) -> list[str]:
+    if isinstance(bin_field, str) and bin_field.strip():
+        return ["bin"]
+    if isinstance(bin_field, dict):
+        return [str(k) for k in bin_field if str(k).strip()]
+    return []
+
+
+def _toml_keys_in_section(text: str, section: str) -> list[str]:
+    want = f"[{section.lower()}]"
+    names: list[str] = []
+    in_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_section = stripped.lower() == want
+            continue
+        if in_section and "=" in stripped and not stripped.startswith("#"):
+            names.append(stripped.split("=", 1)[0].strip().strip("\"'"))
+    return names
+
+
+def _is_infra_path(rel: str) -> bool:
+    name = rel.rsplit("/", 1)[-1].lower()
+    if name in {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"}:
+        return True
+    if name.startswith("dockerfile."):
+        return True
+    low = rel.lower()
+    if low.startswith(("k8s/", "kubernetes/", "deploy/")) or "/k8s/" in f"/{low}" or "/kubernetes/" in f"/{low}":
+        return name.endswith((".yml", ".yaml"))
+    return False
+
+
+def _is_ci_path(rel: str) -> bool:
+    low = rel.lower()
+    return "/.github/workflows/" in f"/{low}" and low.endswith((".yml", ".yaml"))
+
+
 def _toml_dep_names(text: str) -> list[str]:
+    """PEP 621 inline arrays and `[project.dependencies]` tables."""
     names: list[str] = []
     in_deps = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("["):
-            in_deps = "dependencies" in stripped.lower()
+        inline = re.match(
+            r"(?:dependencies|dev-dependencies)\s*=\s*\[(.*)\]\s*$",
+            stripped,
+            re.I,
+        )
+        if inline:
+            for part in inline.group(1).split(","):
+                raw = part.strip().strip("\"'")
+                if raw:
+                    names.append(re.split(r"[<>=!~;\[]", raw, maxsplit=1)[0].strip().lower())
             continue
-        if in_deps and "=" in stripped:
+        if stripped.startswith("["):
+            header = stripped.lower()
+            in_deps = "dependencies" in header and header != "[project]"
+            continue
+        if in_deps and "=" in stripped and not stripped.startswith("#"):
             names.append(stripped.split("=", 1)[0].strip().strip("\"'").lower())
     return names
 

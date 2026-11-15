@@ -9,6 +9,13 @@ from repo_parsing.references import (
     ImportRef,
     extract_references,
 )
+from repo_parsing.decompose import Decomposition, decompose
+from repo_parsing.profile import (
+    ANALYZER_CATALOG,
+    RepoProfile,
+    classify_profile,
+    select_analyzers,
+)
 from repo_parsing.understanding import (
     CatalogSeed,
     EndpointFact,
@@ -25,6 +32,7 @@ from repo_parsing.understanding import (
 )
 
 __all__ = [
+    "ANALYZER_CATALOG",
     "BuiltChunk",
     "CallSite",
     "CatalogSeed",
@@ -32,9 +40,13 @@ __all__ = [
     "ExtractedReferences",
     "ExtractedSymbol",
     "ImportRef",
+    "Decomposition",
     "JobFact",
+    "RepoProfile",
     "build_scope_header",
     "chunk_file_symbols",
+    "classify_profile",
+    "decompose",
     "detect_language",
     "extract_file",
     "extract_references",
@@ -49,4 +61,5 @@ __all__ = [
     "pick_catalog_seed",
     "sanitize_narrative",
     "scan_tree",
+    "select_analyzers",
 ]

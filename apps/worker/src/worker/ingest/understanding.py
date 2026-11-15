@@ -14,12 +14,27 @@ from repo_core.models import (
     Edge,
     Endpoint,
     External,
+    Feature,
     FileRecord,
     Flow,
     IndexRun,
+    Module,
+    RepoProfile,
     Repository,
     Symbol,
 )
+from repo_parsing.decompose import (
+    CapabilitySeed,
+    FileEdge,
+    FileUnit,
+    GraphInput,
+    SymbolLink,
+    SymbolRef,
+    aggregate_file_edges,
+    decompose,
+)
+from repo_parsing.profile import RepoProfile as ProfileFacts
+from repo_parsing.profile import classify_profile, select_analyzers
 from repo_parsing.understanding import (
     EndpointFact,
     UnderstandingFacts,
@@ -30,7 +45,7 @@ from repo_parsing.understanding import (
     parse_route_edge_name,
     scan_tree,
 )
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from worker import celery_app
@@ -69,15 +84,32 @@ async def index_understanding(org_id: str, repo_id: str) -> dict[str, Any]:
         full_name = repo.full_name
 
     try:
-        facts = scan_tree(clone_path)
+        edge_kinds: dict[str, int] = {}
         async with session_scope(org_uuid) as db:
-            extra = await _merge_route_edges(db, repo_uuid, facts)
+            edge_kinds = await _edge_kind_counts(db, repo_uuid)
+        try:
+            probe = scan_tree(clone_path, analyzers=[])
+            profile = classify_profile(probe, edge_kinds=edge_kinds)
+            analyzers = select_analyzers(profile)
+            facts = scan_tree(clone_path, analyzers=analyzers)
+        except Exception:
+            logger.exception("profiling failed for %s; scanning with every analyzer", repo_id)
+            facts = scan_tree(clone_path)
+            profile = classify_profile(facts, edge_kinds=edge_kinds)
+            analyzers = select_analyzers(profile)
+        async with session_scope(org_uuid) as db:
+            extra = 0
+            if "http" in analyzers:
+                extra = await _merge_route_edges(db, repo_uuid, facts)
             stats["scan"] = {
                 "files": facts.file_count,
                 "endpoints": len(facts.endpoints),
                 "externals": len(facts.externals),
                 "entry_points": len(facts.entry_points),
                 "route_edges_merged": extra,
+                "application_style": profile.application_style,
+                "analyzers": analyzers,
+                "profile_confidence": profile.confidence,
             }
             persist_stats = await persist_understanding(
                 db,
@@ -85,6 +117,7 @@ async def index_understanding(org_id: str, repo_id: str) -> dict[str, Any]:
                 repo_id=repo_uuid,
                 facts=facts,
                 indexed_sha=indexed_sha,
+                profile=profile,
             )
             stats.update(persist_stats)
             run = await db.get(IndexRun, run_id)
@@ -113,6 +146,7 @@ async def persist_understanding(
     repo_id: UUID,
     facts: UnderstandingFacts,
     indexed_sha: str | None,
+    profile: ProfileFacts | None = None,
 ) -> dict[str, Any]:
     """Replace understanding rows for this repo from Layer A facts + the call graph."""
     file_rows = (
@@ -131,6 +165,9 @@ async def persist_understanding(
     for sym, path in sym_rows:
         symbols_by_path.setdefault(path.replace("\\", "/"), []).append(sym)
 
+    await db.execute(delete(Feature).where(Feature.repo_id == repo_id))
+    await db.execute(delete(Module).where(Module.repo_id == repo_id))
+    await db.execute(delete(RepoProfile).where(RepoProfile.repo_id == repo_id))
     await db.execute(delete(Flow).where(Flow.repo_id == repo_id))
     await db.execute(delete(Endpoint).where(Endpoint.repo_id == repo_id))
     await db.execute(delete(External).where(External.repo_id == repo_id))
@@ -204,6 +241,21 @@ async def persist_understanding(
 
     await db.flush()
 
+    if profile is None:
+        profile = classify_profile(facts)
+        select_analyzers(profile)
+    decomp_stats = await _persist_decomposition(
+        db,
+        org_id=org_id,
+        repo_id=repo_id,
+        facts=facts,
+        indexed_sha=indexed_sha,
+        profile=profile,
+        files_by_path=files_by_path,
+        sym_rows=sym_rows,
+        endpoints=endpoint_rows,
+    )
+
     flow_count = await _seed_flows(
         db,
         org_id=org_id,
@@ -220,6 +272,26 @@ async def persist_understanding(
         narrative = await interpret_brief(facts, fallback=narrative)
     except Exception:
         logger.warning("brief interpretation failed; keeping heuristic", exc_info=True)
+    overview = None
+    wiki_stats: dict[str, Any] = {}
+    try:
+        async with db.begin_nested():
+            from api.synth.run import run_synthesis_and_wiki
+
+            wiki_stats = await run_synthesis_and_wiki(
+                db,
+                org_id=org_id,
+                repo_id=repo_id,
+                indexed_sha=indexed_sha,
+                profile=profile,
+            )
+            overview = wiki_stats.get("overview")
+    except Exception:
+        logger.exception("synthesis failed; keeping the heuristic overview")
+        overview = None
+        wiki_stats = {}
+    if overview:
+        narrative = {**narrative, "summary": str(overview)[:700], "synthesized_from": wiki_stats.get("synthesized_from") or []}
     facts_dict = facts.to_dict()
     facts_dict["hotspots"] = _hotspots(sym_rows, limit=6)
 
@@ -239,6 +311,8 @@ async def persist_understanding(
         "externals": len(facts.externals),
         "components": len(comp_files),
         "flows": flow_count,
+        **decomp_stats,
+        **wiki_stats,
     }
 
 
@@ -395,6 +469,12 @@ async def _seed_flows(
                 for s in raw
             ]
             mermaid = to_mermaid(target, raw)
+            try:
+                from api.wiki.diagram import mermaid_from_call_steps
+
+                mermaid = mermaid_from_call_steps(target.name if target else title, raw, {str(sid) for sid in nodes})
+            except Exception:
+                logger.warning("diagram IR failed; keeping call-flow mermaid", exc_info=True)
             for s in raw:
                 src_n, dst_n = nodes.get(s.src_id), nodes.get(s.dst_id)
                 if src_n and src_n.path not in files:
@@ -473,6 +553,227 @@ async def _seed_flows(
         )
 
     return count
+
+
+async def _edge_kind_counts(db: AsyncSession, repo_id: UUID) -> dict[str, int]:
+    rows = (
+        await db.execute(select(Edge.kind, func.count()).where(Edge.repo_id == repo_id).group_by(Edge.kind))
+    ).all()
+    return {str(kind): int(count) for kind, count in rows}
+
+
+async def _persist_decomposition(
+    db: AsyncSession,
+    *,
+    org_id: UUID,
+    repo_id: UUID,
+    facts: UnderstandingFacts,
+    indexed_sha: str | None,
+    profile: ProfileFacts,
+    files_by_path: dict[str, FileRecord],
+    sym_rows: list[tuple[Symbol, str]],
+    endpoints: list[Endpoint],
+) -> dict[str, Any]:
+    """Write the profile plus graph-grounded modules and features.
+
+    `decompose` already falls back when the graph is empty. A database error
+    still fails the run so a half-written hierarchy is not committed.
+    """
+    graph = await _load_graph(db, repo_id, facts, files_by_path, sym_rows, endpoints)
+    result = decompose(graph)
+    try:
+        from api.graph.narrative import label_decomposition
+
+        await label_decomposition(result.modules, result.features)
+    except Exception:
+        logger.warning("module labeling failed; keeping deterministic names", exc_info=True)
+
+    key_to_id: dict[str, UUID] = {}
+    for draft in _topo_modules(result.modules):
+        module_id = uuid4()
+        key_to_id[draft.key] = module_id
+        parent = key_to_id.get(draft.parent_key) if draft.parent_key else None
+        db.add(
+            Module(
+                id=module_id,
+                org_id=org_id,
+                repo_id=repo_id,
+                indexed_sha=indexed_sha,
+                parent_id=parent,
+                name=(draft.name or "Module")[:128],
+                kind=draft.kind,
+                member_file_ids=draft.file_ids,
+                member_symbol_ids=draft.symbol_ids,
+                cohesion=draft.cohesion,
+                coupling=draft.coupling,
+                evidence=draft.evidence,
+                summary=None,
+                file_count=draft.file_count,
+                symbol_count=draft.symbol_count,
+            )
+        )
+        if draft.kind in {"application", "service"}:
+            await db.flush()
+    await db.flush()
+    for feat in result.features:
+        db.add(
+            Feature(
+                id=uuid4(),
+                org_id=org_id,
+                repo_id=repo_id,
+                indexed_sha=indexed_sha,
+                name=(feat.name or "Feature")[:256],
+                entry_point_symbol_ids=feat.entry_point_symbol_ids,
+                member_symbol_ids=feat.member_symbol_ids,
+                module_ids=[str(key_to_id[key]) for key in feat.module_keys if key in key_to_id],
+                evidence={**feat.evidence, "files": list(feat.files)},
+                confidence=feat.confidence,
+                summary=None,
+            )
+        )
+    db.add(
+        RepoProfile(
+            id=uuid4(),
+            org_id=org_id,
+            repo_id=repo_id,
+            indexed_sha=indexed_sha,
+            application_style=profile.application_style,
+            languages=profile.languages,
+            frameworks=[hit.to_dict() for hit in profile.frameworks],
+            analyzers=list(profile.analyzers),
+            signals=profile.signals,
+            confidence=profile.confidence,
+        )
+    )
+    await db.flush()
+    return {
+        "application_style": profile.application_style,
+        "analyzers": list(profile.analyzers),
+        "modules": len(result.modules),
+        "features": len(result.features),
+    }
+
+
+async def _load_graph(
+    db: AsyncSession,
+    repo_id: UUID,
+    facts: UnderstandingFacts,
+    files_by_path: dict[str, FileRecord],
+    sym_rows: list[tuple[Symbol, str]],
+    endpoints: list[Endpoint],
+) -> GraphInput:
+    symbol_file: dict[str, str] = {}
+    symbols: list[SymbolRef] = []
+    by_path_name: dict[tuple[str, str], str] = {}
+    units_index: dict[str, FileUnit] = {}
+    for sym, path in sym_rows:
+        rel = path.replace("\\", "/")
+        if assign_layer(rel) == "test":
+            continue
+        sid = str(sym.id)
+        symbol_file[sid] = rel
+        symbols.append(SymbolRef(symbol_id=sid, name=sym.name, path=rel, kind=sym.kind))
+        by_path_name[(rel, sym.name)] = sid
+        unit = units_index.get(rel)
+        if unit is None:
+            rec = files_by_path.get(rel)
+            unit = FileUnit(path=rel, file_id=str(rec.id) if rec else None, symbol_count=0)
+            units_index[rel] = unit
+        unit.symbol_ids.append(sid)
+        unit.symbol_count += 1
+
+    for rel, rec in files_by_path.items():
+        if assign_layer(rel) == "test" or rel in units_index:
+            continue
+        units_index[rel] = FileUnit(path=rel, file_id=str(rec.id), symbol_count=0)
+
+    edge_rows = (
+        await db.execute(
+            select(
+                Edge.src_symbol_id,
+                Edge.dst_symbol_id,
+                Edge.dst_name,
+                Edge.kind,
+                Edge.confidence,
+                Edge.src_file_id,
+            ).where(Edge.repo_id == repo_id)
+        )
+    ).all()
+    links: list[SymbolLink] = []
+    import_edges: list[FileEdge] = []
+    known = set(units_index)
+    id_to_path = {rec.id: path for path, rec in files_by_path.items()}
+    for src_id, dst_id, dst_name, kind, confidence, src_file_id in edge_rows:
+        links.append(
+            SymbolLink(
+                src_id=str(src_id) if src_id else "",
+                dst_id=str(dst_id) if dst_id else None,
+                dst_name=dst_name,
+                kind=kind,
+                confidence=float(confidence or 0.5),
+            )
+        )
+        if kind == "imports" and src_id is None and src_file_id is not None:
+            src = id_to_path.get(src_file_id)
+            dst = (dst_name or "").replace("\\", "/")
+            if src and dst in known and src != dst:
+                import_edges.append(FileEdge(src, dst, float(confidence or 0.5)))
+
+    seeds: list[CapabilitySeed] = []
+    for ep in endpoints:
+        seeds.append(
+            CapabilitySeed(
+                title=f"{ep.method} {ep.path}",
+                kind="http",
+                symbol_id=str(ep.handler_symbol_id) if ep.handler_symbol_id else None,
+                file_path=ep.file_path,
+                name=ep.handler_name or ep.path,
+            )
+        )
+    for job in facts.jobs:
+        rel = job.path.replace("\\", "/")
+        sid = by_path_name.get((rel, job.name))
+        seeds.append(
+            CapabilitySeed(
+                title=job.name,
+                kind="job" if job.kind == "celery" else job.kind,
+                symbol_id=sid,
+                file_path=rel,
+                name=job.name,
+            )
+        )
+
+    return GraphInput(
+        files=sorted(units_index.values(), key=lambda unit: unit.path),
+        edges=aggregate_file_edges(symbol_file, links) + import_edges,
+        symbols=symbols,
+        symbol_links=links,
+        seeds=seeds,
+    )
+
+
+def _topo_modules(drafts: list[Any]) -> list[Any]:
+    pending = list(drafts)
+    emitted: set[str] = set()
+    ordered: list[Any] = []
+    for _ in range(len(drafts) + 2):
+        if not pending:
+            break
+        nxt: list[Any] = []
+        for draft in pending:
+            parent = draft.parent_key
+            if parent is None or parent in emitted:
+                ordered.append(draft)
+                emitted.add(draft.key)
+            else:
+                nxt.append(draft)
+        if len(nxt) == len(pending):
+            for draft in nxt:
+                draft.parent_key = "application" if "application" in emitted else None
+            pending = nxt
+            continue
+        pending = nxt
+    return ordered
 
 
 @celery_app.task(name="worker.ingest.index_understanding")

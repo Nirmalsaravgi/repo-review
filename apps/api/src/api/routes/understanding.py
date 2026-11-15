@@ -7,7 +7,17 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from repo_core.models import Brief, Endpoint, Flow, FileRecord, Repository, Symbol
+from repo_core.models import (
+    Brief,
+    Endpoint,
+    Feature,
+    Flow,
+    FileRecord,
+    Module,
+    RepoProfile,
+    Repository,
+    Symbol,
+)
 from repo_core.schemas import (
     ArchitectureNodeOut,
     ArchitectureOut,
@@ -17,15 +27,20 @@ from repo_core.schemas import (
     CallFlowStepOut,
     ComponentImpactOut,
     ComponentMembersOut,
+    DecompositionOut,
     EndpointGroupOut,
     EndpointOut,
+    FeatureOut,
     FileMemberOut,
     FlowDetailOut,
     FlowQueryIn,
     FlowQueryOut,
+    FrameworkHitOut,
     FlowSummaryOut,
     IndexUnderstandingOut,
     ModuleEdgeOut,
+    ModuleNodeOut,
+    RepoProfileOut,
     SymbolMemberOut,
 )
 from repo_core.session import SessionData
@@ -442,6 +457,98 @@ async def _live_endpoints(db: AsyncSession, repo_id: UUID) -> list[EndpointOut]:
             )
         )
     return out
+
+
+@router.get("/{repo_id}/profile", response_model=RepoProfileOut)
+async def get_profile(
+    repo_id: str,
+    session: Annotated[SessionData, Depends(require_session)],
+    db: Annotated[AsyncSession, Depends(tenant_db)],
+) -> RepoProfileOut:
+    repo = await _load_repo(db, session, repo_id)
+    row = (
+        await db.execute(
+            select(RepoProfile).where(RepoProfile.repo_id == repo.id).order_by(RepoProfile.created_at.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Repository profile is not built yet")
+    return RepoProfileOut(
+        application_style=row.application_style,
+        languages=dict(row.languages or {}),
+        frameworks=[
+            FrameworkHitOut(
+                name=str(item.get("name") or ""),
+                confidence=float(item.get("confidence") or 0),
+                evidence=[str(e) for e in (item.get("evidence") or [])],
+            )
+            for item in (row.frameworks or [])
+            if isinstance(item, dict)
+        ],
+        analyzers=[str(name) for name in (row.analyzers or [])],
+        signals=list(row.signals or []),
+        confidence=row.confidence,
+        indexed_sha=row.indexed_sha,
+    )
+
+
+@router.get("/{repo_id}/decomposition", response_model=DecompositionOut)
+async def get_decomposition(
+    repo_id: str,
+    session: Annotated[SessionData, Depends(require_session)],
+    db: Annotated[AsyncSession, Depends(tenant_db)],
+) -> DecompositionOut:
+    """Responsibility tree plus cross-folder feature candidates. Summaries stay empty until synthesis."""
+    repo = await _load_repo(db, session, repo_id)
+    modules = (
+        await db.execute(select(Module).where(Module.repo_id == repo.id))
+    ).scalars().all()
+    features = (
+        await db.execute(select(Feature).where(Feature.repo_id == repo.id))
+    ).scalars().all()
+    return DecompositionOut(modules=_module_tree(list(modules)), features=[_feature_out(row) for row in features])
+
+
+def _feature_out(row: Feature) -> FeatureOut:
+    return FeatureOut(
+        id=str(row.id),
+        name=row.name,
+        confidence=row.confidence,
+        module_ids=[str(item) for item in (row.module_ids or [])],
+        entry_point_symbol_ids=[str(item) for item in (row.entry_point_symbol_ids or [])],
+        evidence=dict(row.evidence or {}),
+        summary=row.summary,
+    )
+
+
+def _module_tree(rows: list[Module]) -> list[ModuleNodeOut]:
+    nodes = {
+        row.id: ModuleNodeOut(
+            id=str(row.id),
+            parent_id=str(row.parent_id) if row.parent_id else None,
+            name=row.name,
+            kind=row.kind,
+            cohesion=row.cohesion,
+            coupling=row.coupling,
+            file_count=row.file_count,
+            symbol_count=row.symbol_count,
+            evidence=dict(row.evidence or {}),
+            summary=row.summary,
+        )
+        for row in rows
+    }
+    roots: list[ModuleNodeOut] = []
+    for row in rows:
+        node = nodes[row.id]
+        parent = nodes.get(row.parent_id) if row.parent_id else None
+        if parent is None:
+            roots.append(node)
+        else:
+            parent.children.append(node)
+    for node in nodes.values():
+        node.children.sort(key=lambda child: (child.kind, child.name.lower()))
+    roots.sort(key=lambda node: (node.kind != "application", node.name.lower()))
+    return roots
 
 
 def _group_of(path: str) -> str:

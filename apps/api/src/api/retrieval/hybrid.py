@@ -28,6 +28,8 @@ class HybridRetriever:
         rrf_k: int = 60,
     ) -> None:
         self.root = root
+        self.db = db
+        self.repo_id = repo_id
         self.rrf_k = rrf_k
         self.lexical = lexical or LexicalRetriever(root, db=db, repo_id=repo_id)
         self.semantic = semantic or SemanticRetriever(
@@ -38,11 +40,19 @@ class HybridRetriever:
         """Return fused hits. Empty channels are skipped rather than failing the merge."""
         # Fetch wider lists so RRF has room to promote mid-ranked consensus items.
         channel_limit = max(limit * 3, 15)
+        wiki_hits: list[RetrievalHit] = []
         lexical_hits, semantic_hits = await asyncio.gather(
             self.lexical.retrieve(query, limit=channel_limit),
             self.semantic.retrieve(query, limit=channel_limit),
         )
-        lists = [lst for lst in (lexical_hits, semantic_hits) if lst]
+        if self.db is not None and self.repo_id is not None:
+            try:
+                from api.retrieval.wiki import WikiRetriever
+
+                wiki_hits = await WikiRetriever(self.db, self.repo_id).retrieve(query, limit=limit)
+            except Exception:
+                wiki_hits = []
+        lists = [lst for lst in (lexical_hits, semantic_hits, wiki_hits) if lst]
         if not lists:
             return []
         if len(lists) == 1:

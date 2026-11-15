@@ -364,3 +364,82 @@ class ComponentImpactOut(BaseModel):
     by_category: dict[str, list[ComponentImpactItemOut]] = Field(default_factory=dict)
     endpoints: list[dict] = Field(default_factory=list)
     note: str | None = None
+
+
+class FrameworkHitOut(BaseModel):
+    name: str
+    confidence: float = 0
+    evidence: list[str] = Field(default_factory=list)
+
+
+class RepoProfileOut(BaseModel):
+    application_style: str
+    languages: dict[str, int] = Field(default_factory=dict)
+    frameworks: list[FrameworkHitOut] = Field(default_factory=list)
+    analyzers: list[str] = Field(default_factory=list)
+    signals: list[dict] = Field(default_factory=list)
+    confidence: float = 0
+    indexed_sha: str | None = None
+
+
+class ModuleNodeOut(BaseModel):
+    id: str
+    parent_id: str | None = None
+    name: str
+    kind: str
+    cohesion: float = 0
+    coupling: float = 0
+    file_count: int = 0
+    symbol_count: int = 0
+    evidence: dict = Field(default_factory=dict)
+    summary: str | None = None
+    children: list["ModuleNodeOut"] = Field(default_factory=list)
+
+
+class FeatureOut(BaseModel):
+    id: str
+    name: str
+    confidence: float = 0
+    module_ids: list[str] = Field(default_factory=list)
+    entry_point_symbol_ids: list[str] = Field(default_factory=list)
+    evidence: dict = Field(default_factory=dict)
+    summary: str | None = None
+
+
+class DecompositionOut(BaseModel):
+    modules: list[ModuleNodeOut] = Field(default_factory=list)
+    features: list[FeatureOut] = Field(default_factory=list)
+
+
+class WikiNavItem(BaseModel):
+    slug: str
+    title: str
+    type: str
+    parent_slug: str | None = None
+
+
+class WikiNavOut(BaseModel):
+    pages: list[WikiNavItem] = Field(default_factory=list)
+
+
+class WikiSourceOut(BaseModel):
+    path: str
+    start_line: int | None = None
+    end_line: int | None = None
+
+
+class WikiPageOut(BaseModel):
+    slug: str
+    title: str
+    type: str
+    body: str
+    parent_slug: str | None = None
+    sources: list[WikiSourceOut] = Field(default_factory=list)
+    validation_status: str = "unchecked"
+    warnings: list[str] = Field(default_factory=list)
+    diagram_mermaid: str | None = None
+    related: list[WikiNavItem] = Field(default_factory=list)
+    indexed_sha: str | None = None
+
+
+ModuleNodeOut.model_rebuild()

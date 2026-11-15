@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Repository } from "@/lib/api";
 import {
+  STYLE_LABEL,
   architectureToModuleGraph,
   fetchArchitecture,
   fetchBrief,
+  fetchProfile,
   triggerIndexUnderstanding,
   type Architecture,
   type Brief,
+  type RepoProfile,
 } from "@/lib/understanding";
 import { ModuleFlow } from "./graph/ModuleFlow";
 import styles from "./OverviewPanel.module.css";
@@ -23,6 +26,7 @@ export function OverviewPanel({
   onOpenMode: (mode: "architecture" | "flows" | "apis", opts?: { component?: string }) => void;
 }) {
   const [brief, setBrief] = useState<Brief | null>(null);
+  const [profile, setProfile] = useState<RepoProfile | null>(null);
   const [arch, setArch] = useState<Architecture | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +36,14 @@ export function OverviewPanel({
     setLoading(true);
     setError(null);
     try {
-      const [b, a] = await Promise.all([fetchBrief(repo.id), fetchArchitecture(repo.id)]);
+      const [b, a, p] = await Promise.all([
+        fetchBrief(repo.id),
+        fetchArchitecture(repo.id),
+        fetchProfile(repo.id).catch(() => null),
+      ]);
       setBrief(b);
       setArch(a);
+      setProfile(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load overview");
     } finally {
@@ -57,7 +66,12 @@ export function OverviewPanel({
         setBrief(b);
         if (b.source === "cached") break;
       }
-      setArch(await fetchArchitecture(repo.id));
+      const [a, p] = await Promise.all([
+        fetchArchitecture(repo.id),
+        fetchProfile(repo.id).catch(() => null),
+      ]);
+      setArch(a);
+      setProfile(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Build failed");
     } finally {
@@ -94,6 +108,8 @@ export function OverviewPanel({
       </header>
 
       {error ? <div className={styles.error}>{error}</div> : null}
+
+      <ProfileCard profile={profile} />
 
       <div className={styles.stats}>
         <Stat label="Files" value={brief?.file_count ?? 0} />
@@ -230,6 +246,55 @@ export function OverviewPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function ProfileCard({ profile }: { profile: RepoProfile | null }) {
+  if (!profile) {
+    return (
+      <div className={styles.card}>
+        <h3>Repository profile</h3>
+        <p className={styles.muted}>
+          Explain this repo to classify what kind of system it is and which analyzers apply.
+        </p>
+      </div>
+    );
+  }
+  const why = profile.signals
+    .filter((signal) => (signal.weight || 0) > 0 && signal.detector !== "decision")
+    .slice(0, 4)
+    .map((signal) => {
+      const detail = Array.isArray(signal.detail) ? signal.detail.join(", ") : String(signal.detail ?? "");
+      return `${signal.detector}: ${detail}`;
+    });
+  return (
+    <div className={styles.card}>
+      <h3>Repository profile</h3>
+      <p className={styles.profileLead}>
+        <strong>{STYLE_LABEL[profile.application_style] || profile.application_style}</strong>
+        <span>{Math.round(profile.confidence * 100)}% confidence</span>
+      </p>
+      {profile.analyzers.length > 0 ? (
+        <div className={styles.chips}>
+          {profile.analyzers.map((name) => (
+            <span key={name} className={styles.chip}>
+              {name}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className={styles.muted}>No application analyzers — this looks like a library, not an app.</p>
+      )}
+      {why.length > 0 ? (
+        <ul className={styles.list}>
+          {why.map((line) => (
+            <li key={line}>
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

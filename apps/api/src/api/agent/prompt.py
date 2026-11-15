@@ -27,7 +27,7 @@ questions and analyze_impact for "what breaks if I change X".
 
 Tool guidance:
 - find_symbol(name): exact / fuzzy symbol lookup — prefer for identifiers (FooBar, handle_checkout).
-- search_code(query): hybrid semantic+lexical search — prefer for conceptual questions.
+- search_code(query): hybrid semantic + lexical + published wiki search. Prefer it for conceptual questions. Hits with source "wiki" are the same explanations the wiki shows; still read_file before citing a line.
 - grep / glob / read_file: keep using these for precise regexes, path filters, and verification.
 - git_* tools: ownership and history when the history index is available.
 - analyze_impact(symbol): blast radius — what breaks if a symbol changes (grouped by tests / \

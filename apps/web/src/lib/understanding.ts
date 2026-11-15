@@ -114,6 +114,72 @@ export type ImpactItem = {
   confidence: number;
 };
 
+export type FrameworkHit = { name: string; confidence: number; evidence: string[] };
+
+export type RepoProfile = {
+  application_style: string;
+  languages: Record<string, number>;
+  frameworks: FrameworkHit[];
+  analyzers: string[];
+  signals: { detector?: string; weight?: number; detail?: unknown; style?: string }[];
+  confidence: number;
+  indexed_sha: string | null;
+};
+
+export type ModuleNode = {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  kind: string;
+  cohesion: number;
+  coupling: number;
+  file_count: number;
+  symbol_count: number;
+  evidence: {
+    method?: string;
+    files?: string[];
+    folders?: string[];
+    reason?: string;
+    boundary?: string | null;
+    child_modules?: string[];
+    intra_weight?: number;
+    cross_weight?: number;
+  };
+  summary: string | null;
+  children: ModuleNode[];
+};
+
+export type FeatureItem = {
+  id: string;
+  name: string;
+  confidence: number;
+  module_ids: string[];
+  entry_point_symbol_ids: string[];
+  evidence: {
+    path?: string[];
+    folders?: string[];
+    modules?: string[];
+    resolution?: string;
+    entry?: { title?: string; kind?: string; file?: string | null };
+  };
+  summary: string | null;
+};
+
+export type Decomposition = { modules: ModuleNode[]; features: FeatureItem[] };
+
+export const STYLE_LABEL: Record<string, string> = {
+  backend_api: "Backend API",
+  frontend: "Frontend application",
+  fullstack_monorepo: "Full-stack monorepo",
+  ml_system: "ML / AI system",
+  cli: "Command-line tool",
+  library: "Library / SDK",
+  event_driven: "Event-driven system",
+  infra: "Infrastructure",
+  data_pipeline: "Data pipeline",
+  unknown: "Unknown — every analyzer",
+};
+
 export type ComponentImpact = {
   component_id: string;
   label: string;
@@ -140,6 +206,38 @@ export function fetchBrief(repoId: string) {
 
 export function fetchArchitecture(repoId: string) {
   return getJson<Architecture>(`/repos/${repoId}/architecture`);
+}
+
+export function fetchProfile(repoId: string) {
+  return getJson<RepoProfile>(`/repos/${repoId}/profile`);
+}
+
+export function fetchDecomposition(repoId: string) {
+  return getJson<Decomposition>(`/repos/${repoId}/decomposition`);
+}
+
+export type WikiNavItem = { slug: string; title: string; type: string; parent_slug: string | null };
+export type WikiSource = { path: string; start_line: number | null; end_line: number | null };
+export type WikiPage = {
+  slug: string;
+  title: string;
+  type: string;
+  body: string;
+  parent_slug: string | null;
+  sources: WikiSource[];
+  validation_status: string;
+  warnings: string[];
+  diagram_mermaid: string | null;
+  related: WikiNavItem[];
+  indexed_sha: string | null;
+};
+
+export function fetchWiki(repoId: string) {
+  return getJson<{ pages: WikiNavItem[] }>(`/repos/${repoId}/wiki`);
+}
+
+export function fetchWikiPage(repoId: string, slug: string) {
+  return getJson<WikiPage>(`/repos/${repoId}/wiki/${slug.split("/").map(encodeURIComponent).join("/")}`);
 }
 
 export function fetchEndpoints(repoId: string) {

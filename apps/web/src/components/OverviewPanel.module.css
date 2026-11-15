@@ -116,6 +116,23 @@
   padding: 0.9rem 1rem;
 }
 
+.profileLead {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin: 0 0 0.65rem;
+}
+
+.profileLead strong {
+  font-size: 1rem;
+}
+
+.profileLead span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .card h3 {
   margin: 0 0 0.65rem;
   font-size: 0.82rem;

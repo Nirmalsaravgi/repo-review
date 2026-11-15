@@ -634,6 +634,198 @@ class Brief(Base):
     )
 
 
+class RepoProfile(Base):
+    """One profile per analyzed SHA. Decides which analyzers apply."""
+
+    __tablename__ = "repo_profiles"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "indexed_sha", name="uq_repo_profiles_repo_sha"),
+        Index("ix_repo_profiles_repo", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    application_style: Mapped[str] = mapped_column(String(32), nullable=False, default="unknown")
+    languages: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    frameworks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    analyzers: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    signals: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Module(Base):
+    """Responsibility-based module. `member_*` are this node, not its children."""
+
+    __tablename__ = "modules"
+    __table_args__ = (Index("ix_modules_repo_parent", "repo_id", "parent_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parent_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("modules.id", ondelete="CASCADE"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="module")
+    member_file_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    member_symbol_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    cohesion: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    coupling: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    symbol_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Feature(Base):
+    """A capability that may cross modules and folders. Summary is filled later."""
+
+    __tablename__ = "features"
+    __table_args__ = (Index("ix_features_repo", "repo_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    entry_point_symbol_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    member_symbol_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    module_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class DocPlan(Base):
+    """What this SHA should document, and which entities deserve a deep explanation."""
+
+    __tablename__ = "doc_plans"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "indexed_sha", name="uq_doc_plans_repo_sha"),
+        Index("ix_doc_plans_repo", "repo_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    categories: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    priorities: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AtomicSummary(Base):
+    """Grounded leaf explanation. Facts and inferences are stored apart."""
+
+    __tablename__ = "atomic_summaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "repo_id",
+            "target_kind",
+            "target_id",
+            "content_sha",
+            name="uq_atomic_summaries_target_sha",
+        ),
+        Index("ix_atomic_summaries_target", "repo_id", "target_kind", "target_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    facts: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    inferences: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    evidence: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    content_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class WikiArtifact(Base):
+    """A published or staging wiki page. Body is assembled from stored summaries."""
+
+    __tablename__ = "wiki_artifacts"
+    __table_args__ = (
+        UniqueConstraint("repo_id", "indexed_sha", "slug", name="uq_wiki_artifacts_repo_sha_slug"),
+        Index("ix_wiki_artifacts_repo_status", "repo_id", "status", "type"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    slug: Mapped[str] = mapped_column(String(256), nullable=False)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    parent_slug: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    diagram_ir: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    source_revision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    depends_on: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="staging")
+    validation_status: Mapped[str] = mapped_column(String(16), nullable=False, default="unchecked")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ValidationResult(Base):
+    __tablename__ = "validation_results"
+    __table_args__ = (Index("ix_validation_results_artifact", "artifact_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    indexed_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    artifact_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("wiki_artifacts.id", ondelete="CASCADE"), nullable=False
+    )
+    check_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 TENANT_TABLES = (
     "users",
     "installations",
@@ -656,4 +848,11 @@ TENANT_TABLES = (
     "components",
     "flows",
     "briefs",
+    "repo_profiles",
+    "modules",
+    "features",
+    "doc_plans",
+    "atomic_summaries",
+    "wiki_artifacts",
+    "validation_results",
 )

@@ -11,6 +11,7 @@ import { FlowsPanel } from "./FlowsPanel";
 import { GraphPanel } from "./GraphPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { OverviewPanel } from "./OverviewPanel";
+import { WikiPanel } from "./WikiPanel";
 import styles from "./RepoPicker.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
@@ -26,10 +27,11 @@ async function readApiError(res: Response): Promise<string> {
   return text || `Request failed: ${res.status}`;
 }
 
-type View = "overview" | "architecture" | "flows" | "apis" | "chat" | "more";
+type View = "overview" | "read" | "architecture" | "flows" | "apis" | "chat" | "more";
 
 const VIEWS: { id: View; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "◎" },
+  { id: "read", label: "Read", icon: "☰" },
   { id: "architecture", label: "Architecture", icon: "◈" },
   { id: "flows", label: "Flows", icon: "↝" },
   { id: "apis", label: "APIs", icon: "⎘" },
@@ -57,6 +59,7 @@ export function RepoPicker({
   const [focusComponent, setFocusComponent] = useState<string | null>(null);
   const [focusFlowId, setFocusFlowId] = useState<string | null>(null);
   const [focusFlowTitle, setFocusFlowTitle] = useState<string | null>(null);
+  const [wikiSlug, setWikiSlug] = useState<string | null>(null);
   const [flowQuerying, setFlowQuerying] = useState(false);
 
   const filtered = useMemo(() => {
@@ -348,6 +351,14 @@ export function RepoPicker({
                     setFocusComponent(opts?.component ?? null);
                     setView(mode);
                   }}
+                />
+              ) : null}
+              {view === "read" ? (
+                <WikiPanel
+                  repo={activeRepo}
+                  initialSlug={wikiSlug}
+                  onAsk={(q, ctx) => void handleAsk(q, { context: ctx })}
+                  onOpenArchitecture={() => setView("architecture")}
                 />
               ) : null}
               {view === "architecture" ? (
